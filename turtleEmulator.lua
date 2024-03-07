@@ -16,6 +16,7 @@ local turtleEmulator = {
     ---@type facing
     facing = nil,
     canMoveToCheck = nil,
+    canPrint = nil,
     createTurtle = function(self)
         local turtle = {
             position = { x = 0, y = 0, z = 0 },
@@ -23,9 +24,32 @@ local turtleEmulator = {
             canMoveToCheck = nil
         }
         setmetatable(turtle, { __index = self })
-        return turtle
+
+        local proxy = {}
+        local mt = {}
+        mt.__index = function(_, key)
+            local value = turtle[key]
+            if type(value) == "function" then
+                return function(...)
+                    local mightBeSelf = select(1, ...)
+                    if mightBeSelf == turtle then
+                        return value(...)
+                    elseif mightBeSelf == proxy then
+                        return value(turtle, select(2, ...))
+                    end
+                    return value(turtle, ...)
+                end
+            end
+            return value
+        end
+        mt.__newindex = function(_, key, value)
+            turtle[key] = value
+        end
+        mt.__metatable = mt
+
+        setmetatable(proxy, mt)
+        return proxy
     end,
-    canPrint = nil
 }
 
 
@@ -82,6 +106,7 @@ local function down(self)
 end
 
 function turtleEmulator:forward()
+    self:print(self.canPrint, "Can print")
     local c, e = canMoveTo(self, "forward")
     if not c then
         return c, e
@@ -133,8 +158,8 @@ local mt = {
     end
 }
 
-function turtleEmulator:print(generic)
-    return self.canPrint ~= nil and print(generic)
+function turtleEmulator:print(...)
+    return self.canPrint ~= nil and print(...)
 end
 
 setmetatable(turtleEmulator, mt)
