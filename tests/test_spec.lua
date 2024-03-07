@@ -212,7 +212,6 @@ describe("Complexer Movement", function()
         assert.are.equal(2, turtle.position.y)
     end)
 end)
-
 describe("multiple Turtles", function()
     local turtle1
     local turtle2
@@ -252,7 +251,6 @@ describe("multiple Turtles", function()
         assert.are.equal(1, turtle2.facing)
     end)
 end)
-
 describe("ProxyTests", function()
     local turtle
     setup(function()
