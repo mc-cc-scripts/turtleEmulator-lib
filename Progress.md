@@ -4,6 +4,10 @@
 turtle.getFuelLevel()
 turtle.turnLeft()
 turtle.turnRight()
+turtle.getSelectedSlot()
+turtle.select(slotNum)
+turtle.getItemCount(slotNum)
+turtle.getItemSpace(slotNum)
 ```
 
 ## Implemented but not finished
@@ -22,9 +26,6 @@ turtle.down()
 ## Haven't started
 
 ```lua
-turtle.select(slotNum)
-turtle.getItemCount(slotNum)
-turtle.getItemSpace(slotNum)
 turtle.detect()
 turtle.detectUp()
 turtle.detectDown()
@@ -40,7 +41,7 @@ turtle.suckUp(count)
 turtle.suckDown(count)
 turtle.refuel(count)
 turtle.getFuelLimit()
-turtle.transferTo(slotNum, count)
+turtle.transferTo(slotNum, count)--now
 turtle.equipLeft()
 turtle.equipRight()
 turtle.dig()
@@ -56,6 +57,4 @@ turtle.attack()
 turtle.attackUp()
 turtle.attackDown()
 turtle.craft(count)
-turtle.getSelectedSlot()
-turtle.getSlotCount()
 ```
