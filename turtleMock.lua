@@ -24,9 +24,10 @@ end
 ---@alias height integer
 ---@alias position {x: north, y: east, z: height}
 
----@alias item {name: string, count: integer}
----@alias turtleSlot {name: string, count: integer, maxcount: integer, durabilty: integer, fuelgain: integer, placeAble: boolean, equipable: boolean}
----@alias inventory { [integer]: turtleSlot }
+---@alias item {name: string, durabilty: integer, equipable: boolean, fuelgain: integer, placeAble: boolean, maxcount: number, wildcardInfo: any, count: integer}
+---@alias inventory { [integer]: item }
+
+-- ---@alias equipslots {left : }
 
 
 
@@ -96,6 +97,9 @@ local function down(self)
     self.position.y = self.position.y - 1
     return true
 end
+local function slotNotEmpty(slot)
+    return slot ~= nil
+end
 
 ---@return TurtleProxy
 function turtleMock.createMock()
@@ -110,7 +114,7 @@ function turtleMock.createMock()
         ---@type number
         fuelLevel = 0,
         ---@type boolean
-        canPrint = true,
+        canPrint = false,
         ---@type inventory
         inventory = {},
         ---@type integer
@@ -210,7 +214,7 @@ end
 function turtleMock:getItemCount(slot)
     slot = slot or self.selectedSlot
     assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    return self.inventory[slot] ~= nil and self.inventory[slot].count or 0
+    return slotNotEmpty(self.inventory[slot]) and self.inventory[slot].count or 0
 end
 
 --- gets the space in the selected slot or the specified slot
@@ -219,7 +223,7 @@ end
 function turtleMock:getItemSpace(slot)
     slot = slot or self.selectedSlot
     assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    return self.inventory[slot] ~= nil and self.inventory[slot].maxcount - self.inventory[slot].count or
+    return slotNotEmpty(self.inventory[slot]) and self.inventory[slot].maxcount - self.inventory[slot].count or
         self.defaultMaxSlotSize
 end
 
@@ -233,8 +237,9 @@ end
 function turtleMock:getItemDetail(slot)
     slot = slot or self.selectedSlot
     assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    local item = self.inventory[slot]
-    return item ~= nil and { name = item.name, count = item.count } or nil
+    ---@type item
+    local iSlot = self.inventory[slot]
+    return iSlot ~= nil and { name = iSlot.name, count = iSlot.count } or nil
 end
 
 --- Compare the item in the selected slot to the item in the specified slot.
@@ -242,14 +247,14 @@ end
 ---@return boolean equal true if the items are equal
 function turtleMock:compareTo(slot)
     assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-    local item = self.inventory[self.selectedSlot]
-    local compareItem = self.inventory[slot]
-    if item == nil and compareItem == nil then
+    local iSlot = self.inventory[self.selectedSlot]
+    local compareSlot = self.inventory[slot]
+    if iSlot == nil and compareSlot == nil then
         return true
-    elseif item == nil or compareItem == nil then
+    elseif iSlot == nil or compareSlot == nil then
         return false
     end
-    return item.name == compareItem.name
+    return iSlot.name == compareSlot.name
 end
 
 --- Transfers items between the selected slot and the specified slot.
@@ -271,7 +276,7 @@ function turtleMock:transferTo(slot, count)
             return true
         end
         self.inventory[slot] = deepCopy(self.inventory[self.selectedSlot])
-        self.inventory[slot].count = math.min(self.inventory[slot].maxcount, count)
+        self.inventory[slot].count =  math.min(self.inventory[slot] and self.inventory[slot].maxcount or 0 , count)
         local transferTo = math.min(currentSlot.count, count)
         currentSlot.count = currentSlot.count - transferTo
         if currentSlot.count < 1 then
@@ -298,7 +303,7 @@ end
 
 --- Finds the first slot containing the specified item or no Item, starting with the selected slot and looping around.
 ---@param turtle TurtleMock
----@param item turtleSlot
+---@param item item
 ---@param startingSlot number
 local function findFittingSlot(turtle, item, startingSlot)
     for i = startingSlot, 16 do
@@ -323,10 +328,11 @@ end
 ---
 --- <b>note</b>: This function will only work for tests and does not work on the CraftOS-Turtle
 ---@param turtle TurtleMock
----@param item turtleSlot
+---@param item item
 ---@param slot number | nil
 local function pickUpItem(turtle, item, slot)
     assert(item.count > 0, "Count must be greater than 0")
+    turtle:print("Item: ", item.count)
     if slot == nil then
         while item.count > 0 do
             local fittingSlot = findFittingSlot(turtle, item, turtle.selectedSlot)
@@ -335,19 +341,18 @@ local function pickUpItem(turtle, item, slot)
             end
             local space = turtle:getItemSpace(fittingSlot)
             local toTransfer = math.min(space, item.count)
+
+            local currentCount = turtle:getItemCount(fittingSlot)
+            turtle.inventory[fittingSlot] = deepCopy(item)
             if (turtle.inventory[fittingSlot] == nil) then
-                turtle.inventory[fittingSlot] = {
-                    name = item.name,
-                    count = toTransfer,
-                    maxcount = turtle
-                        .defaultMaxSlotSize
-                }
+                turtle.inventory[fittingSlot].maxcount = item.maxcount or turtle.defaultMaxSlotSize
             end
+            turtle.inventory[fittingSlot].count = currentCount + toTransfer
             item.count = item.count - toTransfer
         end
     else
         assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-        if turtle.inventory[slot] ~= nil and turtle.inventory[slot].name ~= item.name then
+        if slotNotEmpty(turtle.inventory[slot] ) and turtle.inventory[slot].name ~= item.name then
             return false, "Can't pick up item, slot is not empty"
         end
         if turtle:getItemSpace(slot) < item.count then
@@ -362,10 +367,12 @@ local function pickUpItem(turtle, item, slot)
     return true
 end
 
+
+
 --- for Testing purposes:
 
 --- adds an item to the inventory
----@param item turtleSlot
+---@param item item
 ---@param slot number | nil
 function turtleMock:addItemToInventory(item, slot)
     local succ, errorReason = pickUpItem(self, item, slot)
@@ -379,6 +386,10 @@ function turtleMock:getFuelLevel()
     return self.fuelLevel
 end
 
+function turtleMock:getFuelLimit()
+    return self.fuelLimit
+end
+
 local function functionNotFoundError(key)
     return error("Function / Key: '" .. key .. "' not found")
 end
@@ -389,7 +400,9 @@ end
 ---@param ... any
 ---@return nil
 function turtleMock:print(...)
-    return self.canPrint == true and print(...)
+    if (self.canPrint == true) then
+        print(...)
+    end
 end
 
 local mt = {

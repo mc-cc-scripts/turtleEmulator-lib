@@ -1,3 +1,4 @@
+---@diagnostic disable: need-check-nil, missing-parameter, param-type-mismatch
 ---@class are
 ---@field same function
 ---@field equal function
@@ -37,7 +38,7 @@ local turtleEmulator = require("../turtleEmulator")
 describe("Disabled Movement", function()
     local turtle
     setup(function()
-        turtle = turtleEmulator:createTurtle(turtleEmulator)
+        turtle = turtleEmulator:createTurtle()
         turtle.canMoveToCheck = function()
             return false
         end
@@ -66,7 +67,7 @@ end)
 describe("Enabled Movement", function()
     local turtle
     setup(function()
-        turtle = turtleEmulator:createTurtle(turtleEmulator)
+        turtle = turtleEmulator:createTurtle()
         turtle["canMoveToCheck"] = function()
             return true
         end
@@ -95,7 +96,7 @@ end)
 describe("Track Movement", function()
     local turtle
     setup(function()
-        turtle = turtleEmulator:createTurtle(turtleEmulator)
+        turtle = turtleEmulator:createTurtle()
         turtle["canMoveToCheck"] = function()
             return true
         end
@@ -142,7 +143,7 @@ end)
 describe("Track Facing Direction", function()
     local turtle
     setup(function()
-        turtle = turtleEmulator:createTurtle(turtleEmulator)
+        turtle = turtleEmulator:createTurtle()
         turtle["canMoveToCheck"] = function()
             return true
         end
@@ -262,7 +263,6 @@ describe("ProxyTests", function()
 
     it("Create own key Value", function()
         local functionGotCalled = false
-        turtle.canPrint = true
         function turtle:thisIsATest(RandomString)
             assert.are_not.equal(self, turtle, "The self reference is the Proxy instead of the turtle object")
             assert.are.equal("RandomString", RandomString, "Parameter 2 not correct, might be a self reference?")
@@ -271,7 +271,6 @@ describe("ProxyTests", function()
 
         turtle:thisIsATest("RandomString")
         assert.are.equal(true, functionGotCalled, "Function was not called")
-        turtle.canPrint = false
     end)
 
     it("Change Metatable", function()
@@ -343,6 +342,7 @@ describe("InventoryTests", function()
                 { name = "minecraft:Wood", count = 32, maxcount = 64 },
                 4)
             assert.is_true(succ)
+            assert.are.equal(64, turtle.getItemDetail(4).count)
             assert.are.equal(64, turtle.inventory[4].count)
         end)
         it("Adding more items than maxcount without a specific slot", function()
@@ -351,8 +351,10 @@ describe("InventoryTests", function()
             local succ = turtle:addItemToInventory(
                 { name = "minecraft:Wood", count = 128, maxcount = 64 })
             assert.is_true(succ)
-            assert.are.equal(64, turtle.inventory[3].count)
-            assert.are.equal(64, turtle.inventory[5].count)
+            assert.are.equal(64, turtle.getItemCount(3))
+            assert.are.equal(1, turtle.getItemCount(4))
+            assert.are.equal(64, turtle.getItemCount(5))
+            assert.are.equal(0, turtle.getItemCount(6))
         end)
     end)
     describe("Remaining Inventory Tests", function()
