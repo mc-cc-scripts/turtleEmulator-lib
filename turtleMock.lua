@@ -1,16 +1,4 @@
-local function deepCopy(original)
-    local copy
-    if type(original) == 'table' then
-        copy = {}
-        for original_key, original_value in next, original, nil do
-            copy[deepCopy(original_key)] = deepCopy(original_value)
-        end
-        setmetatable(copy, deepCopy(getmetatable(original)))
-    else -- number, string, boolean, etc
-        copy = original
-    end
-    return copy
-end
+
 
 
 ---@alias direction "forward" | "back" | "up" | "down"
@@ -27,8 +15,9 @@ end
 ---@alias item {name: string, durabilty: integer, equipable: boolean, fuelgain: integer, placeAble: boolean, maxcount: number, wildcardInfo: any, count: integer}
 ---@alias inventory { [integer]: item }
 
--- ---@alias equipslots {left : }
-
+---@alias left string
+---@alias right string
+---@alias equipslots {left: item, right: item}
 
 
 ---@class TurtleMock
@@ -41,10 +30,27 @@ end
 ---@field selectedSlot integer
 ---@field fuelLimit integer
 ---@field defaultMaxSlotSize integer
+---@field equipslots equipslots
+---@field emulator TurtleEmulator
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
 local turtleMock = {
 
 }
+
+local function deepCopy(original)
+    local copy
+    if type(original) == 'table' then
+        copy = {}
+        for original_key, original_value in next, original, nil do
+            copy[deepCopy(original_key)] = deepCopy(original_value)
+        end
+        setmetatable(copy, deepCopy(getmetatable(original)))
+    else -- number, string, boolean, etc
+        copy = original
+    end
+    return copy
+end
+
 ---@param self TurtleMock
 ---@param direction string the direction to move to
 ---@return boolean success if the turtle can move to the direction
@@ -97,12 +103,206 @@ local function down(self)
     self.position.y = self.position.y - 1
     return true
 end
+
 local function slotNotEmpty(slot)
     return slot ~= nil
 end
 
+--- Finds the first slot containing the specified item or no Item, starting with the selected slot and looping around.
+---@param turtle TurtleMock
+---@param item item
+---@param startingSlot number
+local function findFittingSlot(turtle, item, startingSlot)
+    for i = startingSlot, 16 do
+        if turtle.inventory[i] == nil then
+            return i
+        end
+        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
+            return i
+        end
+    end
+    for i = 1, startingSlot - 1 do
+        if turtle.inventory[i] == nil then
+            return i
+        end
+        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
+            return i
+        end
+    end
+end
+
+--- Adds items to the selected slot or the specified slot.
+---
+--- <b>note</b>: This function will only work for tests and does not work on the CraftOS-Turtle
+---@param turtle TurtleMock
+---@param item item
+---@param slot number | nil
+local function pickUpItem(turtle, item, slot)
+    assert(item.count > 0, "Count must be greater than 0")
+    turtle:print("Item: ", item.count)
+    if slot == nil then
+        while item.count > 0 do
+            local fittingSlot = findFittingSlot(turtle, item, turtle.selectedSlot)
+            if fittingSlot == nil then
+                return false, "No fitting slot found"
+            end
+            local space = turtle:getItemSpace(fittingSlot)
+            local toTransfer = math.min(space, item.count)
+
+            local currentCount = turtle:getItemCount(fittingSlot)
+            turtle.inventory[fittingSlot] = deepCopy(item)
+            if (turtle.inventory[fittingSlot] == nil) then
+                turtle.inventory[fittingSlot].maxcount = item.maxcount or turtle.defaultMaxSlotSize
+            end
+            turtle.inventory[fittingSlot].count = currentCount + toTransfer
+            item.count = item.count - toTransfer
+        end
+    else
+        assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
+        if slotNotEmpty(turtle.inventory[slot] ) and turtle.inventory[slot].name ~= item.name then
+            return false, "Can't pick up item, slot is not empty"
+        end
+        if turtle:getItemSpace(slot) < item.count then
+            return false, "Not enough space in the slot"
+        end
+        if turtle.inventory[slot] == nil then
+            turtle.inventory[slot] = item
+        else
+            turtle.inventory[slot].count = turtle.inventory[slot].count + item.count
+        end
+    end
+    return true
+end
+
+local function functionNotFoundError(key)
+    return error("Function / Key: '" .. key .. "' not found")
+end
+
+--- ### Description:
+---@param turtle TurtleMock
+---@param slot number
+---@param count number
+---@return boolean
+---@return string | nil
+local function removeItem(turtle, slot, count)
+    local item = turtle.inventory[slot]
+    if item == nil then
+        return false, "No item in the slot"
+    end
+    if item.count < count then
+        return false, "Not enough items in the slot"
+    end
+    item.count = item.count - count
+    if item.count == 0 then
+        turtle.inventory[slot] = nil
+    end
+    return true
+end
+
+--- ### Description:
+--- Switches slots if available.
+---
+--- If item is stackable, the old equip will be added to the inventory, if possible.
+---
+--- Otherwise the items are just switched
+---
+--- If no slot is available, the turtle will dispone the old item
+---@param turtle TurtleMock
+---@param slot number
+---@param side left | right
+---@return boolean
+---@return string | nil
+local function equip(turtle, slot, side)
+    assert(side~= nil, "To Equip an Item, the side must be specified")
+    local item = turtle.inventory[slot]
+    if item == nil or not item.equipable then
+        return false, "Not a valid upgrade"
+    end
+    local equipedItem
+    local itemCopy = deepCopy(item)
+    if turtle.equipslots == nil  then
+            turtle.equipslots = {side = itemCopy}
+    else
+        equipedItem = turtle.equipslots[side]
+        turtle.equipslots[side] = itemCopy
+    end
+    turtle.equipslots[side].count = 1
+    removeItem(turtle, slot, 1)
+    if equipedItem ~= nil then
+        local newSlot = findFittingSlot(turtle, equipedItem, slot)
+        if newSlot ~= nil then
+            turtle.inventory[newSlot] = equipedItem
+        end
+    end
+    return true
+
+end
+
+--- ### Description:
+---
+--- Checks if the turtle can do the action against the block
+---
+--- if nothing is setup, then all actions is not valid
+---
+--- if the action is setup, but the requirement(table) is empty, then the action is valid
+---@param turtle TurtleMock
+---@param block block
+---@param action string
+---@return boolean
+local function canDoAction(turtle, block, action)
+    if block.checkActionValid == nil or block.checkActionValid[action] == nil then
+        return false
+    end
+    if type(block.checkActionValid[action]) == "string" then
+        if turtle.equipslots == nil then
+            return false
+        end
+        if block.checkActionValid[action] == turtle.equipslots.left.name then
+            return true
+        end
+        if block.checkActionValid[action] == turtle.equipslots.right.name then
+            return true
+        end
+    end
+    if type(block.checkActionValid[action]) == "table" then
+        if #block.checkActionValid[action] == 0 then
+            return true
+        end
+        if turtle.equipslots == nil then
+            return false
+        end
+        if turtle.equipslots.left ~= nil and block.checkActionValid[action][turtle.equipslots.left.name] ~= nil then
+            return true
+        end
+        if turtle.equipslots.right ~= nil and block.checkActionValid[action][turtle.equipslots.right.name] ~= nil then
+            return true
+        end
+    end
+    if type(block.checkActionValid[action]) == "function" then
+        return block.checkActionValid(turtle.equipslots, action, block)
+    end
+    return false
+end 
+
+--- ### Description:
+---
+--- Digs in the specified direction
+---@param turtle TurtleMock
+---@param direction "forward" | "up" | "down"
+---@return boolean
+---@return string | nil
+local function dig(turtle, direction)
+    ---@type block
+    local block = nil
+    if not canDoAction(turtle, block, "dig") then
+        return false, "TODO"
+    end
+    return false, "TODO"
+end
+
+---@param emulator TurtleEmulator
 ---@return TurtleProxy
-function turtleMock.createMock()
+function turtleMock.createMock(emulator)
     ---@type TurtleMock
     local turtle = {
         ---@type position
@@ -123,6 +323,8 @@ function turtleMock.createMock()
         fuelLimit = 100000,
         ---@type integer
         defaultMaxSlotSize = 64,
+        equipslots = {},
+        emulator = emulator
     }
     setmetatable(turtle, { __index = turtleMock })
 
@@ -301,76 +503,7 @@ function turtleMock:transferTo(slot, count)
     return false, "Not enough space in the target slot"
 end
 
---- Finds the first slot containing the specified item or no Item, starting with the selected slot and looping around.
----@param turtle TurtleMock
----@param item item
----@param startingSlot number
-local function findFittingSlot(turtle, item, startingSlot)
-    for i = startingSlot, 16 do
-        if turtle.inventory[i] == nil then
-            return i
-        end
-        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
-            return i
-        end
-    end
-    for i = 1, startingSlot - 1 do
-        if turtle.inventory[i] == nil then
-            return i
-        end
-        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
-            return i
-        end
-    end
-end
-
---- Adds items to the selected slot or the specified slot.
----
---- <b>note</b>: This function will only work for tests and does not work on the CraftOS-Turtle
----@param turtle TurtleMock
----@param item item
----@param slot number | nil
-local function pickUpItem(turtle, item, slot)
-    assert(item.count > 0, "Count must be greater than 0")
-    turtle:print("Item: ", item.count)
-    if slot == nil then
-        while item.count > 0 do
-            local fittingSlot = findFittingSlot(turtle, item, turtle.selectedSlot)
-            if fittingSlot == nil then
-                return false, "No fitting slot found"
-            end
-            local space = turtle:getItemSpace(fittingSlot)
-            local toTransfer = math.min(space, item.count)
-
-            local currentCount = turtle:getItemCount(fittingSlot)
-            turtle.inventory[fittingSlot] = deepCopy(item)
-            if (turtle.inventory[fittingSlot] == nil) then
-                turtle.inventory[fittingSlot].maxcount = item.maxcount or turtle.defaultMaxSlotSize
-            end
-            turtle.inventory[fittingSlot].count = currentCount + toTransfer
-            item.count = item.count - toTransfer
-        end
-    else
-        assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-        if slotNotEmpty(turtle.inventory[slot] ) and turtle.inventory[slot].name ~= item.name then
-            return false, "Can't pick up item, slot is not empty"
-        end
-        if turtle:getItemSpace(slot) < item.count then
-            return false, "Not enough space in the slot"
-        end
-        if turtle.inventory[slot] == nil then
-            turtle.inventory[slot] = item
-        else
-            turtle.inventory[slot].count = turtle.inventory[slot].count + item.count
-        end
-    end
-    return true
-end
-
-
-
 --- for Testing purposes:
-
 --- adds an item to the inventory
 ---@param item item
 ---@param slot number | nil
@@ -390,11 +523,53 @@ function turtleMock:getFuelLimit()
     return self.fuelLimit
 end
 
-local function functionNotFoundError(key)
-    return error("Function / Key: '" .. key .. "' not found")
+--- refuels the turtle
+---@param count number
+---@return boolean
+---@return string | nil
+function turtleMock:refuel(count)
+    count = count or 1
+    assert(count > 0, "Count must be greater than 0")
+    local item = self.inventory[self.selectedSlot]
+    if item == nil or count > item.count then
+        return false, "TODO"
+    end
+    if item == nil then
+        return false, "TODO"
+    end
+    if item.fuelgain == nil or item.fuelgain == 0 then
+        return false, "TODO"
+    end
+    if removeItem(self, self.selectedSlot, count) == false then
+        return false, "TODO"
+    end
+    self.fuelLevel = self.fuelLevel + item.fuelgain * count
+    return true
 end
 
+--- Equips the item in the selected slot to the left side
+---@return boolean
+---@return string | nil
+function turtleMock:equipLeft()
+    return equip(self, self.selectedSlot, "left")
+end
 
+--- Equips the item in the selected slot to the right side
+function turtleMock:equipRight()
+    return equip(self, self.selectedSlot, "right")
+end
+
+function turtleMock:dig()
+
+end
+
+function turtleMock:digUp()
+    
+end
+
+function turtleMock:digDown()
+    
+end
 
 ---will only print content if canPrint is set to true
 ---@param ... any

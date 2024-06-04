@@ -8,6 +8,11 @@ turtle.getSelectedSlot()
 turtle.select(slotNum)
 turtle.getItemCount(slotNum)
 turtle.getItemSpace(slotNum)
+turtle.getFuelLimit()
+turtle.transferTo(slotNum, count)
+turtle.equipLeft()
+turtle.equipRight()
+turtle.refuel(count)
 ```
 
 ## Implemented but not finished
@@ -39,11 +44,6 @@ turtle.dropDown(count)
 turtle.suck(count)
 turtle.suckUp(count)
 turtle.suckDown(count)
-turtle.refuel(count)
-turtle.getFuelLimit()
-turtle.transferTo(slotNum, count)--now
-turtle.equipLeft()
-turtle.equipRight()
 turtle.dig()
 turtle.digUp()
 turtle.digDown()
