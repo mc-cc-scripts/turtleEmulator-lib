@@ -13,6 +13,13 @@ turtle.transferTo(slotNum, count)
 turtle.equipLeft()
 turtle.equipRight()
 turtle.refuel(count)
+turtle.dig()
+turtle.digUp()
+turtle.digDown()
+turtle.forward()
+turtle.back()
+turtle.up()
+turtle.down()
 ```
 
 ## Implemented but not finished
@@ -20,10 +27,7 @@ turtle.refuel(count)
 ### No check against fuel level or worldgen
 
 ```lua
-turtle.forward()
-turtle.back()
-turtle.up()
-turtle.down()
+
 ```
 
 ## Implemented but not working
@@ -44,9 +48,6 @@ turtle.dropDown(count)
 turtle.suck(count)
 turtle.suckUp(count)
 turtle.suckDown(count)
-turtle.dig()
-turtle.digUp()
-turtle.digDown()
 turtle.place(text)
 turtle.placeUp(text)
 turtle.placeDown(text)
@@ -57,4 +58,5 @@ turtle.attack()
 turtle.attackUp()
 turtle.attackDown()
 turtle.craft(count)
+peripheral.find("chest, turtle, drive, ...")
 ```

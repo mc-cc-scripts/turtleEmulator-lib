@@ -36,42 +36,50 @@ setup = setup
 before_each = before_each
 
 local turtleEmulator = require("../turtleEmulator")
+local defaultInteration = require("../defaultInteraction")
 describe("Disabled Movement", function()
     local turtle
     setup(function()
+        turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
         turtle = turtleEmulator:createTurtle()
-        turtle.canMoveToCheck = function()
-            return false
-        end
+    end)
+    before_each(function()
+        turtleEmulator:clearBlocks();
     end)
     it("Can't move to forward", function()
+        turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 1, y = 0, z = 0 } })
         local c, e = turtle.forward()
         assert.is.falsy(c)
-        assert.are.equal("Can't move to forward", e)
+        assert.are.equal("Movement obstructed", e)
     end)
     it("Can't move to back", function()
+        turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = -1, y = 0, z = 0 } })
         local c, e = turtle.back()
         assert.is.falsy(c)
-        assert.are.equal("Can't move to back", e)
+        assert.are.equal("Movement obstructed", e)
     end)
     it("Can't move to up", function()
+        turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 0, y = 1, z = 0 } })
         local c, e = turtle.up()
         assert.is.falsy(c)
-        assert.are.equal("Can't move to up", e)
+        assert.are.equal("Movement obstructed", e)
     end)
     it("Can't move to down", function()
+        turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 0, y = -1, z = 0 } })
         local c, e = turtle.down()
         assert.is.falsy(c)
-        assert.are.equal("Can't move to down", e)
+        assert.are.equal("Movement obstructed", e)
     end)
 end)
 describe("Enabled Movement", function()
     local turtle
     setup(function()
+        turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
         turtle = turtleEmulator:createTurtle()
-        turtle["canMoveToCheck"] = function()
-            return true
-        end
+        turtle.addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 16 }, 1)
+        turtle.refuel(64)
     end)
     it("Can move to forward", function()
         local c, e = turtle.forward()
@@ -96,17 +104,12 @@ describe("Enabled Movement", function()
 end)
 describe("Track Movement", function()
     local turtle
-    setup(function()
-        turtle = turtleEmulator:createTurtle()
-        turtle["canMoveToCheck"] = function()
-            return true
-        end
-    end)
     before_each(function()
-        turtle.position.x = 0
-        turtle.position.z = 0
-        turtle.position.y = 0
-        turtle.facing = 0
+        turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
+        turtle = turtleEmulator:createTurtle()
+        turtle.addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 16 }, 1)
+        turtle.refuel(64)
     end)
     it("Move forward", function()
         local c, e = turtle.forward()
@@ -133,6 +136,9 @@ describe("Track Movement", function()
         assert.are.equal(1, turtle.position.y)
     end)
     it("Move down", function()
+        assert.are.equal(0, turtle.position.x)
+        assert.are.equal(0, turtle.position.z)
+        assert.are.equal(0, turtle.position.y)
         local c, e = turtle.down()
         assert.is.truthy(c)
         assert.are.equal(nil, e)
@@ -145,9 +151,6 @@ describe("Track Facing Direction", function()
     local turtle
     setup(function()
         turtle = turtleEmulator:createTurtle()
-        turtle["canMoveToCheck"] = function()
-            return true
-        end
     end)
     before_each(function()
         turtle.position.x = 0
@@ -178,17 +181,12 @@ describe("Track Facing Direction", function()
 end)
 describe("Complexer Movement", function()
     local turtle
-    setup(function()
-        turtle = turtleEmulator:createTurtle()
-        turtle["canMoveToCheck"] = function()
-            return true
-        end
-    end)
     before_each(function()
-        turtle.position.x = 0
-        turtle.position.z = 0
-        turtle.position.y = 0
-        turtle.facing = 0
+        turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
+        turtle = turtleEmulator:createTurtle()
+        turtle.addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 16 }, 1)
+        turtle.refuel(64)
     end)
     it("Move forward, turn right and turn forward", function()
         assert.is_true(turtle.forward())
@@ -217,41 +215,32 @@ end)
 describe("multiple Turtles", function()
     local turtle1
     local turtle2
-    setup(function()
+    before_each(function()
         turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
         turtle1 = turtleEmulator:createTurtle()
         turtle2 = turtleEmulator:createTurtle()
-        turtle1["canMoveToCheck"] = function()
-            return true
-        end
-        turtle2["canMoveToCheck"] = function()
-            return true
-        end
-    end)
-    before_each(function()
-        turtle1.position.x = 0
-        turtle1.position.z = 0
-        turtle1.position.y = 0
-        turtle1.facing = 0
-        turtle2.position.x = 0
-        turtle2.position.z = 0
-        turtle2.position.y = 0
-        turtle2.facing = 0
+        turtle1.addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 16 }, 1)
+        turtle1.refuel(64)
+        turtle2.addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 16 }, 1)
+        turtle2.refuel(64)
     end)
 
-    it("Move forward with both turtles and turn right with turtle2", function()
+    it("Move forward with both turtles", function()
         assert.is_true(turtle1:forward())
+        assert.is_false(turtle2:forward())
+        assert.is_true(turtle1:up())
         assert.is_true(turtle2:forward())
-        assert.is_true(turtle2:turnRight())
         assert.is_true(turtle2:forward())
+        assert.is_true(turtle2:up())
+        assert.is_false(turtle2:back())
         assert.are.equal(1, turtle1.position.x)
+        assert.are.equal(1, turtle1.position.y)
         assert.are.equal(0, turtle1.position.z)
-        assert.are.equal(0, turtle1.position.y)
         assert.are.equal(0, turtle1.facing)
-        assert.are.equal(1, turtle2.position.x)
-        assert.are.equal(1, turtle2.position.z)
-        assert.are.equal(0, turtle2.position.y)
-        assert.are.equal(1, turtle2.facing)
+        assert.are.equal(2, turtle2.position.x)
+        assert.are.equal(1, turtle2.position.y)
+        assert.are.equal(0, turtle2.position.z)
     end)
 end)
 describe("ProxyTests", function()
@@ -538,10 +527,106 @@ describe("EmulatorTesting", function()
 end)
 
 describe("ActionAccepted", function ()
-    --- TODO: Implement
+    ---@type TurtleProxy
     local turtle1
+    ---@type TurtleProxy
     local turtle2
+
+    local toolsStone = "minecraft:pickaxe"
+    local toolsWood= {"minecraft:pickaxe", "minecraft:axe"}
+    ---@type checkActionValid
+    local toolsWheed = function(equipslots, action, blockRef) 
+        local tool1 = equipslots.left and equipslots.left.name or nil
+        local tool2 = equipslots.right and equipslots.right.name or nil
+        return (tool1 == "minecraft:hoe" or tool2 == "minecraft:hoe") and action == "dig"
+    end;
+
+    ---@type onInteration
+    local dirtInteraction = function(turtle, block, action)
+        if block.item.name == "minecraft:dirt" and action == "dig" then
+            block.item.name = "minecraft:farmland"
+            return
+        end
+    end;
     setup(function()
-        turtleEmulator:clearTurtles()
+
     end)
+    before_each(function()
+        turtleEmulator:clearTurtles()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:createBlock({ item = {name = "minecraft:wood"}, position = { x = 1, y = 0, z = 0 }, checkActionValid = { ["dig"] = toolsWood }})
+        turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 0, y = 1, z = 0 }, checkActionValid = { ["dig"] = toolsStone } })
+        turtleEmulator:createBlock({ item = {name = "minecraft:dirt"}, position = { x = 0, y = -1, z = 0 }, checkActionValid = { ["dig"] = toolsWheed }, onInteration = dirtInteraction })
+        turtleEmulator:createBlock({ item = {name = "minecraft:cobblestone"}, position = { x = 0, y = 1, z = 3 } })
+        turtle1 = turtleEmulator:createTurtle()
+        turtle1:addItemToInventory({ name = "minecraft:axe", count = 1, maxcount = 1, equipable = true }, 1)
+        turtle1:addItemToInventory({ name = "minecraft:pickaxe", count = 1, maxcount = 1, equipable = true }, 2)
+        turtle1:addItemToInventory({ name = "minecraft:hoe", count = 1, maxcount = 1, equipable = true }, 3)
+        turtle1:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 4)
+        turtle1:addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 8 }, 16)
+        turtle1.select(16)
+        turtle1.refuel(64)
+        turtle1.select(1)
+    end)
+    it("Dig Up with String", function()
+        turtle1.select(2)
+        assert.True(turtle1.equipLeft())
+        assert.are.equal( "minecraft:pickaxe", turtle1.equipslots.left.name)
+        local succ = turtle1.digUp()
+        assert.is_true(succ)
+        assert.are.equal("minecraft:stone", turtle1.getItemDetail().name)
+        assert.are.equal(nil, turtleEmulator:getBlock({ x = 0, y = 1, z = 0 }))
+    end)
+    it("Dig Front with Table<string>", function()
+        turtle1.select(1)
+        assert.True(turtle1.equipRight())
+        assert.are.equal("minecraft:axe", turtle1.equipslots.right.name)
+        local succ = turtle1.dig()
+        assert.is_true(succ)
+        assert.are.equal(turtleEmulator:getBlock({ x = 1, y = 0, z = 0 }), nil)
+        assert.are.equal("minecraft:wood", turtle1.getItemDetail().name)
+    end)
+    it("Dig Down with table<string, function>", function()
+        turtle1.select(3)
+        assert.True(turtle1.equipLeft())
+        assert.are.equal("minecraft:hoe", turtle1.equipslots.left.name)
+        local succ = turtle1.digDown()
+        assert.is_true(succ)
+        assert.are.equal(nil, turtle1.getItemDetail())
+        assert.are.equal("minecraft:farmland", turtleEmulator:getBlock({ x = 0, y = -1, z = 0 }).item.name)
+    end)
+    it("Dig Distant Block", function()
+        turtle1.turnRight()
+        assert.is_true(turtle1.forward())
+        assert.is_true(turtle1.forward())
+        assert.is_true(turtle1.forward())
+        assert.is_true(turtle1.digUp())
+        assert.is_true(turtle1.up())
+        assert.are.equal("computercraft:turtle_normal", turtleEmulator:getBlock({ x = 0, y = 1, z = 3 }).item.name)
+        turtle1.select(5)
+        assert.are.equal("minecraft:cobblestone", turtle1.getItemDetail().name)
+    end)
+    it("Dig up a Turtle", function()
+        turtleEmulator:clearBlocks()
+        turtle1.forward()
+        turtle1.forward()
+        turtle2 = turtleEmulator:createTurtle()
+        turtle2:addItemToInventory({ name = "minecraft:coal", count = 64, maxcount = 64, fuelgain = 8 }, 1)
+        turtle2.refuel(64)
+        turtle2.forward()
+        assert.is_false(turtle2.forward())
+        turtle2.canPrint = true
+        assert.is_false(turtle2.dig())
+        assert.is_true(turtle2:addItemToInventory({ name = "minecraft:pickaxe", count = 1, maxcount = 1, equipable = true}, 1))
+        assert.is_true(turtle2.equipLeft())
+        assert.is_true(turtle2.dig())
+        assert.are.equal(nil, turtleEmulator:getBlock({ x = 2, y = 0, z = 0 }))
+        assert.are.equal(2, turtleEmulator:getBlock({ x = 1, y = 0, z = 0 }).id)
+        assert.is_true(turtle2.forward())
+        assert.are.equal(2, turtleEmulator:getBlock({ x = 2, y = 0, z = 0 }).id)
+        assert.are.equal("computercraft:turtle_normal", turtleEmulator:getBlock({ x = 2, y = 0, z = 0 }).item.name)
+        assert.are.equal("computercraft:turtle_normal", turtle2.getItemDetail().name)
+    end)
+
+
 end)
