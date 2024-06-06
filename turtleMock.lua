@@ -12,12 +12,14 @@
 ---@alias height integer
 ---@alias position {x: north, y: east, z: height}
 
----@alias item {name: string, durabilty: integer, equipable: boolean, fuelgain: integer, placeAble: boolean, maxcount: number, wildcardInfo: any, count: integer}
+---@alias item {name: string, durabilty: integer, equipable: boolean, fuelgain: integer, placeAble: boolean, maxcount: number, wildcardInfo: any, count: integer, tags: table<string, any> | nil}
 ---@alias inventory { [integer]: item }
 
 ---@alias left string
 ---@alias right string
 ---@alias equipslots {left: item, right: item}
+
+---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
 local defaultInteration = require("../defaultInteraction")
 
@@ -373,6 +375,38 @@ local function dig(turtle, block)
     return true, "Cannot beak block with this tool"
 end
 
+---@param block block | nil
+---@return boolean
+local function detect(block)
+    return block and true or false
+end
+
+---@param block block | nil
+---@param compareItem item | nil
+---@return boolean
+local function compare(block, compareItem)
+    if block == nil and compareItem == nil then
+        return true
+    end
+    if block == nil and compareItem ~= nil then
+        return false
+    end
+    if compareItem == nil and block ~= nil then
+        return false
+    end
+    return block.item.name == compareItem.name
+end
+
+---@param block block | nil
+---@return boolean
+---@return inspectResult
+local function inspect(block)
+    if block == nil or block.item == nil or block.item.name == nil then
+        return false, nil
+    end
+    return true, { name = block.item.name, tags = block.item.tags, state = block.state }
+end
+
 ---@param emulator TurtleEmulator
 ---@return TurtleProxy
 function turtleMock.createMock(emulator, id)
@@ -645,6 +679,54 @@ end
 function turtleMock:digDown()
     local blockPos = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
     return dig(self, blockPos)
+end
+
+function turtleMock:detect()
+    local _, _, blockPos = forward(self, false)
+    local block = self.emulator:getBlock(blockPos)
+    return detect(block)
+end
+
+function turtleMock:detectUp()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y + 1, z = self.position.z})
+    return detect(block)
+end
+
+function turtleMock:detectDown()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
+    return detect(block)
+end
+
+function turtleMock:compare()
+    local _, _, blockPos = forward(self, false)
+    local block = self.emulator:getBlock(blockPos)
+    return compare(block, self.inventory[self.selectedSlot])
+end
+
+function turtleMock:compareUp()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y + 1, z = self.position.z})
+    return compare(block, self.inventory[self.selectedSlot])
+end
+
+function turtleMock:compareDown()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
+    return compare(block, self.inventory[self.selectedSlot])
+end
+
+function turtleMock:inspect()
+    local _, _, blockPos = forward(self, false)
+    local block = self.emulator:getBlock(blockPos)
+    return inspect(block)
+end
+
+function turtleMock:inspectUp()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y + 1, z = self.position.z})
+    return inspect(block)
+end
+
+function turtleMock:inspectDown()
+    local block = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
+    return inspect(block)
 end
 
 ---will only print content if canPrint is set to true

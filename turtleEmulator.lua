@@ -5,7 +5,7 @@
 ---@alias checkActionValidFunc fun(equipslots: equipslots ,action : checkActionName, block: block): true
 ---@alias checkActionValid checkActionValidFunc | table<checkActionName, toolName|checkActionValidFunc>  # e.g. {["dig"] = "pickaxe", ["place"] = func()}
 ---@alias onInteration fun(turtle: TurtleProxy, block: block | TurtleProxy, action: string): nil
----@alias block {item: item, checkActionValid: checkActionValid, position: position, onInteration: onInteration}
+---@alias block {item: item, checkActionValid: checkActionValid, position: position, onInteration: onInteration, state: table<string, any> | nil}
 
 --- used from the Scanner, as the blocks will most likely be scanned, saved and then inserted into the turtleEmulator for testing
 ---@class ScanData

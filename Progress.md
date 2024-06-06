@@ -60,3 +60,5 @@ turtle.attackDown()
 turtle.craft(count)
 peripheral.find("chest, turtle, drive, ...")
 ```
+
+Also: A way to manage the "state" of blocks (for turtle.inspect f.e.)
