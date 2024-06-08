@@ -12,8 +12,7 @@
 ---@alias height integer
 ---@alias position {x: north, y: east, z: height}
 
----@alias item {name: string, durabilty: integer, equipable: boolean, fuelgain: integer, placeAble: boolean, maxcount: number, wildcardInfo: any, count: integer, tags: table<string, any> | nil}
----@alias inventory { [integer]: item }
+
 
 ---@alias left string
 ---@alias right string
@@ -21,38 +20,28 @@
 
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
-local defaultInteration = require("../defaultInteraction")
-
+local defaultInteraction = require("../defaultInteraction")
+local deepCopy = require("../generalFunctions").deepCopy
+local inventory = require("../inventory")
 ---@class TurtleMock
----@field position position
----@field facing facing
----@field canPrint boolean
----@field fuelLevel integer
----@field inventory inventory
----@field selectedSlot integer
----@field fuelLimit integer
----@field defaultMaxSlotSize integer
----@field equipslots equipslots
----@field emulator TurtleEmulator
----@field id number
+---@field position position | nil
+---@field facing facing | nil
+---@field canPrint boolean | nil
+---@field fuelLevel integer | nil
+---@field inventory inventory | nil
+---@field fuelLimit integer | nil
+---@field equipslots equipslots | nil
+---@field emulator TurtleEmulator | nil
+---@field id number | nil
+
+---@class TurtleProxy : TurtleMock
+
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
+---@class TurtleMock
 local turtleMock = {
 
 }
 
-local function deepCopy(original)
-    local copy
-    if type(original) == 'table' then
-        copy = {}
-        for original_key, original_value in next, original, nil do
-            copy[deepCopy(original_key)] = deepCopy(original_value)
-        end
-        setmetatable(copy, deepCopy(getmetatable(original)))
-    else -- number, string, boolean, etc
-        copy = original
-    end
-    return copy
-end
 
 ---@param self TurtleProxy | TurtleMock
 ---@param act boolean | nil
@@ -168,96 +157,6 @@ local function down(self, act)
     return true, nil, newPosition
 end
 
-local function slotNotEmpty(slot)
-    return slot ~= nil
-end
-
---- Finds the first slot containing the specified item or no Item, starting with the selected slot and looping around.
----@param turtle TurtleMock
----@param item item
----@param startingSlot number
-local function findFittingSlot(turtle, item, startingSlot)
-    for i = startingSlot, 16 do
-        if turtle.inventory[i] == nil then
-            return i
-        end
-        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
-            return i
-        end
-    end
-    for i = 1, startingSlot - 1 do
-        if turtle.inventory[i] == nil then
-            return i
-        end
-        if turtle.inventory[i].name == item.name and turtle:getItemSpace(i) > 0 then
-            return i
-        end
-    end
-end
-
---- Adds items to the selected slot or the specified slot.
----
---- <b>note</b>: This function will only work for tests and does not work on the CraftOS-Turtle
----@param turtle TurtleMock
----@param item item
----@param slot number | nil
-local function pickUpItem(turtle, item, slot)
-    assert(item.count > 0, "Count must be greater than 0")
-    if slot == nil then
-        while item.count > 0 do
-            local fittingSlot = findFittingSlot(turtle, item, turtle.selectedSlot)
-            if fittingSlot == nil then
-                return false, "No fitting slot found"
-            end
-            local space = turtle:getItemSpace(fittingSlot)
-            local toTransfer = math.min(space, item.count)
-
-            local currentCount = turtle:getItemCount(fittingSlot)
-            turtle.inventory[fittingSlot] = deepCopy(item)
-            if (turtle.inventory[fittingSlot] == nil) then
-                turtle.inventory[fittingSlot].maxcount = item.maxcount or turtle.defaultMaxSlotSize
-            end
-            turtle.inventory[fittingSlot].count = currentCount + toTransfer
-            item.count = item.count - toTransfer
-        end
-    else
-        assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-        if slotNotEmpty(turtle.inventory[slot] ) and turtle.inventory[slot].name ~= item.name then
-            return false, "Can't pick up item, slot is not empty"
-        end
-        if turtle:getItemSpace(slot) < item.count then
-            return false, "Not enough space in the slot"
-        end
-        if turtle.inventory[slot] == nil then
-            turtle.inventory[slot] = item
-        else
-            turtle.inventory[slot].count = turtle.inventory[slot].count + item.count
-        end
-    end
-    return true
-end
-
---- ### Description:
----@param turtle TurtleMock
----@param slot number
----@param count number
----@return boolean
----@return string | nil
-local function removeItem(turtle, slot, count)
-    local item = turtle.inventory[slot]
-    if item == nil then
-        return false, "No item in the slot"
-    end
-    if item.count < count then
-        return false, "Not enough items in the slot"
-    end
-    item.count = item.count - count
-    if item.count == 0 then
-        turtle.inventory[slot] = nil
-    end
-    return true
-end
-
 --- ### Description:
 --- Switches slots if available.
 ---
@@ -286,9 +185,9 @@ local function equip(turtle, slot, side)
         turtle.equipslots[side] = itemCopy
     end
     turtle.equipslots[side].count = 1
-    removeItem(turtle, slot, 1)
+    turtle.inventory:removeItem(slot, 1)
     if equipedItem ~= nil then
-        local newSlot = findFittingSlot(turtle, equipedItem, slot)
+        local newSlot = turtle.inventory:findFittingSlot(equipedItem, slot)
         if newSlot ~= nil then
             turtle.inventory[newSlot] = equipedItem
         end
@@ -306,7 +205,7 @@ end
 ---
 --- note: Order is left to right on priority on equipment
 ---@param turtle TurtleMock
----@param block block
+---@param block block | nil
 ---@param action string
 ---@return boolean
 local function canDoAction(turtle, block, action)
@@ -314,7 +213,7 @@ local function canDoAction(turtle, block, action)
         "If you want to prevent the turtle from interacting with the block, "..
         "set checkActionValid to {'<action>' = {}} or leave it empty to allow all actions"
     -- check typeof function
-    assert(block.checkActionValid ~= nil, text)
+    assert(block and block.checkActionValid, text)
     if type(block.checkActionValid) == "function" then
         return block.checkActionValid(turtle.equipslots, action, block)
     end
@@ -340,6 +239,7 @@ local function canDoAction(turtle, block, action)
 
     -- check typeof table
     if type(block.checkActionValid[action]) == "table" then
+        ---@diagnostic disable-next-line: param-type-mismatch
         for _, requiredTool in pairs(block.checkActionValid[action]) do
             if type(requiredTool) == "string" then
                 if turtle.equipslots.left and requiredTool == turtle.equipslots.left.name then
@@ -362,7 +262,7 @@ end
 ---
 --- Digs the specified block, if possible
 ---@param turtle TurtleProxy | TurtleMock
----@param block block
+---@param block block | nil
 ---@return boolean
 ---@return string | nil
 local function dig(turtle, block)
@@ -370,6 +270,7 @@ local function dig(turtle, block)
     if not canDoAction(turtle, block, "dig") then
         return false, "Cannot beak block with this tool"
     end
+    assert(block, "Block is nil")
     ---@cast turtle TurtleProxy
     block.onInteration(turtle, block, "dig")
     return true, "Cannot beak block with this tool"
@@ -384,7 +285,7 @@ end
 ---@param block block | nil
 ---@param compareItem item | nil
 ---@return boolean
-local function compare(block, compareItem)
+local function compareBlock(block, compareItem)
     if block == nil and compareItem == nil then
         return true
     end
@@ -393,6 +294,13 @@ local function compare(block, compareItem)
     end
     if compareItem == nil and block ~= nil then
         return false
+    end
+
+    if not (block and block.item and block.item.name) then
+        error("Block has no item")
+    end
+    if not (compareItem and compareItem.name) then
+        error("CompareItem has no name")
     end
     return block.item.name == compareItem.name
 end
@@ -407,10 +315,32 @@ local function inspect(block)
     return true, { name = block.item.name, tags = block.item.tags, state = block.state }
 end
 
+---@param turtle TurtleProxy | TurtleMock
+---@param position position
+---@return boolean
+---@return string | any | nil
+local function place(turtle, position)
+    local item = turtle.inventory[turtle.inventory.selectedSlot]
+    if item == nil then
+        return false, "No item to place"
+    end
+    if item.placeAction ~= nil then 
+        return item.placeAction(turtle, item, position)
+    end
+    if item.placeAble == nil or item.placeAble == false then
+        return false, "Cannot place item here"
+    end
+    local block = turtle.emulator:getBlock(position)
+    if block ~= nil then
+        return false, "Cannot place block here"
+    end
+    turtle.emulator:createBlock({item = item, position = position})
+    return turtle.inventory:removeItem(turtle.inventory.selectedSlot, 1)
+end
+
 ---@param emulator TurtleEmulator
 ---@return TurtleProxy
 function turtleMock.createMock(emulator, id)
-    ---@type TurtleMock
     local turtle = {
         ---@type position
         position = { x = 0, y = 0, z = 0 },
@@ -421,13 +351,11 @@ function turtleMock.createMock(emulator, id)
         ---@type boolean
         canPrint = false,
         ---@type inventory
-        inventory = {},
+        inventory = inventory:createInventory(16),
         ---@type integer
         selectedSlot = 1,
         ---@type integer
         fuelLimit = 100000,
-        ---@type integer
-        defaultMaxSlotSize = 64,
         equipslots = {},
         emulator = emulator,
         id = id,
@@ -441,11 +369,10 @@ function turtleMock.createMock(emulator, id)
             end
             return false
         end},
-        onInteration = defaultInteration
+        onInteration = defaultInteraction
     }
     setmetatable(turtle, { __index = turtleMock })
 
-    ---@class TurtleProxy : TurtleMock
     local proxy = {}
     local mt = {}
     mt.__index = function(_, key)
@@ -459,6 +386,7 @@ function turtleMock.createMock(emulator, id)
                 if mightBeSelf == turtle then
                     return value(...)
                 elseif mightBeSelf == proxy then
+                ---@diagnostic disable-next-line: missing-parameter
                     return value(turtle, select(2, ...))
                 end
                 return value(turtle, ...)
@@ -502,35 +430,21 @@ function turtleMock:turnRight()
 end
 
 function turtleMock:getSelectedSlot()
-    return self.selectedSlot
-end
-
---- selects the slot
----@param slot integer the slot to select
----@return boolean success true if the slot was selected
-function turtleMock:select(slot)
-    assert(slot >= 1 and slot <= 16, "bad argument #1 (expected number between 1 and 16)")
-    self.selectedSlot = slot
-    return true
+    return self.inventory.selectedSlot
 end
 
 --- gets the item count in the selected slot or the specified slot
 ---@param slot integer the slot to get the item-count from
 ---@return integer count the amount of items in the slot
 function turtleMock:getItemCount(slot)
-    slot = slot or self.selectedSlot
-    assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    return slotNotEmpty(self.inventory[slot]) and self.inventory[slot].count or 0
+    return self.inventory:getItemCount(slot)
 end
 
 --- gets the space in the selected slot or the specified slot
 ---@param slot integer the slot to get the space for
 ---@return integer space maxcount - currentcount
 function turtleMock:getItemSpace(slot)
-    slot = slot or self.selectedSlot
-    assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    return slotNotEmpty(self.inventory[slot]) and self.inventory[slot].maxcount - self.inventory[slot].count or
-        self.defaultMaxSlotSize
+    return self.inventory:getItemSpace(slot)
 end
 
 function turtleMock:getSocket(socket)
@@ -541,26 +455,18 @@ end
 ---@param slot integer | nil the slot to get the item-details from
 ---@return item | nil item the item in the slot
 function turtleMock:getItemDetail(slot)
-    slot = slot or self.selectedSlot
-    assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
-    ---@type item
-    local iSlot = self.inventory[slot]
-    return iSlot ~= nil and { name = iSlot.name, count = iSlot.count } or nil
+    return self.inventory:getItemDetail(slot)
 end
 
 --- Compare the item in the selected slot to the item in the specified slot.
 ---@param slot integer
 ---@return boolean equal true if the items are equal
 function turtleMock:compareTo(slot)
-    assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-    local iSlot = self.inventory[self.selectedSlot]
-    local compareSlot = self.inventory[slot]
-    if iSlot == nil and compareSlot == nil then
-        return true
-    elseif iSlot == nil or compareSlot == nil then
-        return false
-    end
-    return iSlot.name == compareSlot.name
+    return self.inventory:compareTo(slot)
+end
+
+function turtleMock:removeItem(slot, count)
+    return self.inventory:removeItem(slot, count)
 end
 
 --- Transfers items between the selected slot and the specified slot.
@@ -571,40 +477,14 @@ end
 ---@return boolean success true if the transfer was successful
 ---@return string | nil errorReason the reason why the transfer failed
 function turtleMock:transferTo(slot, count)
-    assert(slot ~= nil, "Slot must be specified")
-    assert(count ~= nil, "Count must be specified")
-    assert((slot >= 1 and slot <= 16), "Slot number " .. slot .. " out of range")
-    assert(count > 0, "Count must be greater than 0")
-    local currentSlot = self.inventory[self.selectedSlot]
-    local targetSlot = self.inventory[slot]
-    if (currentSlot == nil) or (targetSlot == nil) then
-        if currentSlot == nil then
-            return true
-        end
-        self.inventory[slot] = deepCopy(self.inventory[self.selectedSlot])
-        self.inventory[slot].count =  math.min(self.inventory[slot] and self.inventory[slot].maxcount or 0 , count)
-        local transferTo = math.min(currentSlot.count, count)
-        currentSlot.count = currentSlot.count - transferTo
-        if currentSlot.count < 1 then
-            self.inventory[self.selectedSlot] = nil
-        end
-        return true
-    elseif currentSlot.name == targetSlot.name then
-        local space = targetSlot.maxcount - targetSlot.count
-        local worked = false
-        local toTransfer = math.min(space, count)
-        if space >= count then
-            worked = true
-        end
-        targetSlot.count = targetSlot.count + toTransfer
-        currentSlot.count = currentSlot.count - toTransfer
-        if currentSlot.count < 1 then
-            self.inventory[self.selectedSlot] = nil
-        end
-        local unpack = table.unpack or unpack
-        return worked and true or unpack({ false, "Not enough space in the target slot" })
-    end
-    return false, "Not enough space in the target slot"
+    return self.inventory:transferTo(slot, count)
+end
+
+--- Transfers items between the selected slot and the specified slot.
+---@param slot number the slot to transfer to
+---@return boolean
+function turtleMock:select(slot)
+    return self.inventory:select(slot)
 end
 
 --- for Testing purposes:
@@ -612,9 +492,7 @@ end
 ---@param item item
 ---@param slot number | nil
 function turtleMock:addItemToInventory(item, slot)
-    local succ, errorReason = pickUpItem(self, item, slot)
-    assert(succ, errorReason)
-    return succ, errorReason
+    return self.inventory:addItemToInventory(item, slot)
 end
 
 --- gets the current fuel level
@@ -634,7 +512,7 @@ end
 function turtleMock:refuel(count)
     count = count or 1
     assert(count > 0, "Count must be greater than 0")
-    local item = self.inventory[self.selectedSlot]
+    local item = self.inventory[self.inventory.selectedSlot]
     if item == nil or count > item.count then
         return false, "TODO"
     end
@@ -644,7 +522,7 @@ function turtleMock:refuel(count)
     if item.fuelgain == nil or item.fuelgain == 0 then
         return false, "TODO"
     end
-    if removeItem(self, self.selectedSlot, count) == false then
+    if self.inventory:removeItem(self.inventory.selectedSlot, count) == false then
         return false, "TODO"
     end
     self.fuelLevel = self.fuelLevel + item.fuelgain * count
@@ -655,17 +533,17 @@ end
 ---@return boolean
 ---@return string | nil
 function turtleMock:equipLeft()
-    return equip(self, self.selectedSlot, "left")
+    return equip(self, self.inventory.selectedSlot, "left")
 end
 
 --- Equips the item in the selected slot to the right side
 function turtleMock:equipRight()
-    return equip(self, self.selectedSlot, "right")
+    return equip(self, self.inventory.selectedSlot, "right")
 end
 
 function turtleMock:dig()
     local _, _, blockPos = forward(self, false)
-    ---@type block
+    ---@type block | nil
     local block = self.emulator:getBlock(blockPos)
     
     return dig(self, block)
@@ -700,17 +578,17 @@ end
 function turtleMock:compare()
     local _, _, blockPos = forward(self, false)
     local block = self.emulator:getBlock(blockPos)
-    return compare(block, self.inventory[self.selectedSlot])
+    return compareBlock(block, self.inventory[self.inventory.selectedSlot])
 end
 
 function turtleMock:compareUp()
     local block = self.emulator:getBlock({x = self.position.x, y = self.position.y + 1, z = self.position.z})
-    return compare(block, self.inventory[self.selectedSlot])
+    return compareBlock(block, self.inventory[self.inventory.selectedSlot])
 end
 
 function turtleMock:compareDown()
     local block = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
-    return compare(block, self.inventory[self.selectedSlot])
+    return compareBlock(block, self.inventory[self.inventory.selectedSlot])
 end
 
 function turtleMock:inspect()
@@ -729,6 +607,21 @@ function turtleMock:inspectDown()
     return inspect(block)
 end
 
+function turtleMock:place()
+    local _, _, blockPos = forward(self, false)
+    return place(self, blockPos)
+end
+
+function turtleMock:placeUp()
+    local blockPos = {x = self.position.x, y = self.position.y + 1, z = self.position.z}
+    return place(self, blockPos)
+end
+
+function turtleMock:placeDown()
+    local blockPos = {x = self.position.x, y = self.position.y - 1, z = self.position.z}
+    return place(self, blockPos)
+end
+
 ---will only print content if canPrint is set to true
 ---@param ... any
 ---@return nil
@@ -737,8 +630,5 @@ function turtleMock:print(...)
         print(...)
     end
 end
-
-
-setmetatable(turtleMock, mt)
 
 return turtleMock

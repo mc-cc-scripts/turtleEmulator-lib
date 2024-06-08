@@ -36,7 +36,6 @@ setup = setup
 before_each = before_each
 
 local turtleEmulator = require("../turtleEmulator")
-local defaultInteration = require("../defaultInteraction")
 describe("Disabled Movement", function()
     local turtle
     setup(function()
@@ -483,12 +482,8 @@ describe("Equipment", function ()
         assert.are.equal(turtle.equipslots.right.count, 1)
         assert.are.equal(turtle.inventory[3].name, "CCTweaked:chat_box")
         assert.are.equal(turtle.inventory[3].count, 1)
-    end)
-
-
-    
+    end)  
 end)
-
 describe("EmulatorTesting", function()
     setup(function()
         turtleEmulator:clearTurtles();
@@ -525,7 +520,6 @@ describe("EmulatorTesting", function()
         assert.are.equal(block.item.name, b.item.name)
     end)
 end)
-
 describe("ActionAccepted", function ()
     ---@type TurtleProxy
     local turtle1
@@ -628,8 +622,8 @@ describe("ActionAccepted", function ()
         assert.are.equal("computercraft:turtle_normal", turtle2.getItemDetail().name)
     end)
 end)
-
 describe("Detect, Compare, Inspect", function()
+    ---@type TurtleProxy
     local turtle
     before_each(function()
         turtleEmulator:clearBlocks()
@@ -637,7 +631,6 @@ describe("Detect, Compare, Inspect", function()
         turtle = turtleEmulator:createTurtle()
         turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 1, y = 0, z = 0 } })
         turtleEmulator:createBlock({ item = {name = "minecraft:wood"}, position = { x = 0, y = 1, z = 0 }, state = {burning = true} })
-        
     end)
     it("Detect", function()
         turtleEmulator:createBlock({ item = {name = "minecraft:stone"}, position = { x = 1, y = 0, z = 0 } })
@@ -657,6 +650,16 @@ describe("Detect, Compare, Inspect", function()
         turtle:addItemToInventory({ name = "minecraft:obsidian", count = 1, maxcount = 64 })
         turtle.select(2)
         assert.is_true(turtle.compareDown())
+    end)
+    it("CompareTo", function()
+        assert.is_true(turtle.compareTo(2))
+        turtle:addItemToInventory({ name = "minecraft:stone", count = 1, maxcount = 64 })
+        assert.is_false(turtle.compareTo(2))
+        turtle:addItemToInventory({ name = "minecraft:obsidian", count = 1, maxcount = 64 })
+        assert.is_false(turtle.compareTo(2))
+        turtle:addItemToInventory({ name = "minecraft:obsidian", count = 1, maxcount = 64 }, 3)
+        turtle.select(2)
+        assert.is_true(turtle.compareTo(3))
     end)
     it("Inspect", function()
         local succ, info = turtle.inspect()
@@ -691,6 +694,77 @@ describe("Detect, Compare, Inspect", function()
         assert.are.equal(nil, info.state)
         assert.are.equal(nil, info.tags)
     end)
-
-
+end)
+describe("Place", function()
+    ---@type TurtleProxy
+    local turtle
+    before_each(function()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:clearTurtles()
+        turtle = turtleEmulator:createTurtle()
+    end)
+    it("Place", function()
+        assert.is_false(turtle.place())
+        turtle:addItemToInventory({ name = "minecraft:stone", count = 1, maxcount = 64, placeAble = true}, 1)
+        assert.is_true(turtle.place())
+        local block = turtleEmulator:getBlock({ x = 1, y = 0, z = 0 })
+        assert.are.equal("minecraft:stone", block.item.name)
+    end)
+    it("PlaceUp", function()
+        assert.is_false(turtle.placeUp())
+        turtle:addItemToInventory({ name = "minecraft:stone", count = 1, maxcount = 64, placeAble = true}, 1)
+        assert.is_true(turtle.placeUp())
+        local block = turtleEmulator:getBlock({ x = 0, y = 1, z = 0 })
+        assert.are.equal("minecraft:stone", block.item.name)
+    end)
+    it("PlaceDown", function()
+        assert.is_false(turtle.placeDown())
+        turtle:addItemToInventory({ name = "minecraft:stone", count = 1, maxcount = 64, placeAble = true}, 1)
+        assert.is_true(turtle.placeDown())
+        local block = turtleEmulator:getBlock({ x = 0, y = -1, z = 0 })
+        assert.are.equal("minecraft:stone", block.item.name)
+    end)
+    it("Place with placeFunction", function()
+        assert.is_false(turtle.place())
+        ---@type placeAction | function
+        local placeAction = function(turtle, item, position)
+            item.name = "minecraft:bucket"
+            turtleEmulator:createBlock({ item = { name = "minecraft:water"}, position = position })
+            return true
+        end
+        local item = { name = "minecraft:water_bucket", count = 1, maxcount = 64, placeAble = true, placeAction = placeAction}
+        turtle:addItemToInventory(item, 1)
+        local position = { x = 1, y = 0, z = 0 }
+        local block = turtleEmulator:getBlock(position)
+        assert.are.equal(nil, block)
+        turtle.place()
+        block = turtleEmulator:getBlock(position)
+        assert.are.equal("minecraft:water", block.item.name)
+    end)
+end)
+describe("Chest", function()
+    local turtle
+    describe("Create Chests", function ()
+        it("Create Chests", function ()
+            turtleEmulator:clearBlocks()
+            turtleEmulator:clearTurtles()
+            turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 1, y = 0, z = 0 } })
+            local block = turtleEmulator:getBlock({ x = 1, y = 0, z = 0 })
+            turtleEmulator:addInventoryToBlock(block.position)
+            block.inventory:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
+            
+            block.inventory:select(2)
+            
+            turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 2, y = 0, z = 0 } })
+            local block2 = turtleEmulator:getBlock({ x = 2, y = 0, z = 0 })
+            turtleEmulator:addInventoryToBlock(block2.position)
+            block2.inventory:select(2)
+            assert.is_true(block2.inventory:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2))
+            assert.are.equal(64, block.inventory:getItemCount(1))
+            assert.are.equal(0, block.inventory:getItemCount(2))
+            assert.are.equal(0, block2.inventory:getItemCount(1))
+            assert.are.equal(64, block2.inventory:getItemCount()) -- slot 2
+            assert.are.equal(64, block2.inventory:getItemCount(2))
+        end)
+    end)
 end)

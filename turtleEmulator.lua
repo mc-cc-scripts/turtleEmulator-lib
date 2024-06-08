@@ -3,9 +3,9 @@
 ---@alias toolName string
 ---@alias checkActionName string
 ---@alias checkActionValidFunc fun(equipslots: equipslots ,action : checkActionName, block: block): true
----@alias checkActionValid checkActionValidFunc | table<checkActionName, toolName|checkActionValidFunc>  # e.g. {["dig"] = "pickaxe", ["place"] = func()}
+---@alias checkActionValid checkActionValidFunc | table<checkActionName, toolName|toolName[]|checkActionValidFunc>  # e.g. {["dig"] = "pickaxe", ["place"] = func()}
 ---@alias onInteration fun(turtle: TurtleProxy, block: block | TurtleProxy, action: string): nil
----@alias block {item: item, checkActionValid: checkActionValid, position: position, onInteration: onInteration, state: table<string, any> | nil}
+---@alias block {item: item, checkActionValid: checkActionValid | nil, position: position, onInteration: onInteration | nil , state: table<string, any> | nil, inventory: inventory | nil}
 
 --- used from the Scanner, as the blocks will most likely be scanned, saved and then inserted into the turtleEmulator for testing
 ---@class ScanData
@@ -22,8 +22,9 @@
 
 ---@type TurtleMock
 local turtleM = require("./turtleMock")
-local defaultInteration = require("./defaultInteraction")
+local defaultInteration = require("../defaultInteraction")
 local defaultcheckActionValid = require("./defaultcheckActionValid")
+local inventory = require("./inventory")
 
 ---@class TurtleEmulator
 local turtleEmulator = {
@@ -82,11 +83,6 @@ function turtleEmulator:readBlocks(scannResult, checkActionValid)
     end
 end
 
---- Removes all blocks from the emulated world
-function turtleEmulator:clearBlocks()
-    self.blocks = {}
-end
-
 --- Returns the block at the given position
 ---@param position position
 ---@return block | TurtleProxy | nil
@@ -106,6 +102,16 @@ end
 
 function turtleEmulator:clearBlocks()
     self.blocks = {}
+end
+
+--- Adds an inventory to the block at the given position
+---@param position position
+function turtleEmulator:addInventoryToBlock(position)
+    local block = self:getBlock(position)
+    if block == nil then
+        return
+    end
+    block.inventory = inventory:createInventory()
 end
 
 return turtleEmulator
