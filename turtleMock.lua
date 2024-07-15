@@ -21,7 +21,6 @@
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
 local defaultInteraction = require("../defaultInteraction")
-local deepCopy = require("../generalFunctions").deepCopy
 local inventory = require("../inventory")
 ---@class TurtleMock
 ---@field position position | nil
@@ -33,6 +32,8 @@ local inventory = require("../inventory")
 ---@field equipslots equipslots | nil
 ---@field emulator TurtleEmulator | nil
 ---@field id number | nil
+---@field suits Suits | nil
+
 
 ---@class TurtleProxy : TurtleMock
 
@@ -53,7 +54,7 @@ local function forward(self, act)
         act = true
     end
     ---@type position
-    local newPosition = deepCopy(self.position)
+    local newPosition = self.suits.deepCopy(self.position)
     if self.facing == 0 then
         newPosition.x = self.position.x + 1
     elseif self.facing == 1 then
@@ -85,7 +86,7 @@ local function back(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = deepCopy(self.position)
+    local newPosition = self.suits.deepCopy(self.position)
     if self.facing == 0 then
         newPosition.x = self.position.x - 1
     elseif self.facing == 1 then
@@ -117,7 +118,7 @@ local function up(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = deepCopy(self.position)
+    local newPosition = self.suits.deepCopy(self.position)
     newPosition.y = self.position.y + 1
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed", newPosition
@@ -142,7 +143,7 @@ local function down(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = deepCopy(self.position)
+    local newPosition = self.suits.deepCopy(self.position)
     newPosition.y = self.position.y - 1
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed", newPosition
@@ -177,7 +178,7 @@ local function equip(turtle, slot, side)
         return false, "Not a valid upgrade"
     end
     local equipedItem
-    local itemCopy = deepCopy(item)
+    local itemCopy = turtle.suits.deepCopy(item)
     if turtle.equipslots == nil  then
             turtle.equipslots = {side = itemCopy}
     else
@@ -339,8 +340,10 @@ local function place(turtle, position)
 end
 
 ---@param emulator TurtleEmulator
+---@param id number
+---@param suits table<string, any>
 ---@return TurtleProxy
-function turtleMock.createMock(emulator, id)
+function turtleMock.createMock(emulator, id, suits)
     local turtle = {
         ---@type position
         position = { x = 0, y = 0, z = 0 },
@@ -351,7 +354,7 @@ function turtleMock.createMock(emulator, id)
         ---@type boolean
         canPrint = false,
         ---@type inventory
-        inventory = inventory:createInventory(16),
+        inventory = inventory:createInventory(16, suits.deepCopy),
         ---@type integer
         selectedSlot = 1,
         ---@type integer
@@ -369,7 +372,8 @@ function turtleMock.createMock(emulator, id)
             end
             return false
         end},
-        onInteration = defaultInteraction
+        onInteration = defaultInteraction,
+        suits = suits
     }
     setmetatable(turtle, { __index = turtleMock })
 
@@ -621,6 +625,8 @@ function turtleMock:placeDown()
     local blockPos = {x = self.position.x, y = self.position.y - 1, z = self.position.z}
     return place(self, blockPos)
 end
+
+
 
 ---will only print content if canPrint is set to true
 ---@param ... any

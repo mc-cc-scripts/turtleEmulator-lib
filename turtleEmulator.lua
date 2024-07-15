@@ -1,12 +1,27 @@
 --- ### Definitions
 
+---@alias peripheralActions
+---| inventory
+
 ---@alias toolName string
 ---@alias checkActionName string
 ---@alias checkActionValidFunc fun(equipslots: equipslots ,action : checkActionName, block: block): true
 ---@alias checkActionValid checkActionValidFunc | table<checkActionName, toolName|toolName[]|checkActionValidFunc>  # e.g. {["dig"] = "pickaxe", ["place"] = func()}
 ---@alias onInteration fun(turtle: TurtleProxy, block: block | TurtleProxy, action: string): nil
----@alias block {item: item, checkActionValid: checkActionValid | nil, position: position, onInteration: onInteration | nil , state: table<string, any> | nil, inventory: inventory | nil}
 
+---@class block
+---@field item item
+---@field checkActionValid checkActionValid | nil
+---@field position position
+---@field onInteration onInteration | nil
+---@field state table<string, any> | nil
+---@field peripheralActions peripheralActions | nil
+---@field peripheralName string | nil
+
+---@class Suits
+---@field vector Vector
+---@field deepCopy fun(table: table): table
+---
 --- used from the Scanner, as the blocks will most likely be scanned, saved and then inserted into the turtleEmulator for testing
 ---@class ScanData
 ---@field x number
@@ -35,15 +50,27 @@ local turtleEmulator = {
     turtleID = 1,
     createTurtle = function(self)
         ---@type TurtleProxy
-        local t = turtleM.createMock(self, self.turtleID)
+        local t = turtleM.createMock(self, self.turtleID, self.suit)
         self.turtles[self.turtleID] = t
         self.turtleID = self.turtleID + 1
         return t
     end,
+    ---@type Suits
+    suit = {}
 }
 
 local function createPositionKey(position)
     return position.x .. "," .. position.y .. "," .. position.z
+end
+
+--- required for vector-library
+---@param vector Vector
+---@param copyTableFunction fun(table: table): table
+function turtleEmulator:init(vector, copyTableFunction)
+    assert("table" == type(vector), "vector is not a table, but of type: " .. type(vector))
+    assert("function" == type(copyTableFunction), "copyTableFunction is not a function, but of type: " .. type(copyTableFunction))
+    turtleEmulator.suit.vector = vector
+    turtleEmulator.suit.deepCopy = copyTableFunction
 end
 
 --- Adds a block to the emulated world
@@ -57,6 +84,7 @@ function turtleEmulator:createBlock(block)
         block.checkActionValid = defaultcheckActionValid
     end
     self.blocks[createPositionKey(block.position)] = block
+    return self.blocks[createPositionKey(block.position)]
 end
 
 --- Removes a block from the emulated world
@@ -106,12 +134,53 @@ end
 
 --- Adds an inventory to the block at the given position
 ---@param position position
+---@return peripheralActions | nil
 function turtleEmulator:addInventoryToBlock(position)
     local block = self:getBlock(position)
     if block == nil then
         return
     end
-    block.inventory = inventory:createInventory()
+    block.peripheralActions = inventory:createInventory(nil, self.suit.deepCopy)
+    block.peripheralName = "inventory"
+    return self:playPeripheralProxy(position)
 end
 
+--- The Emulator needs to play Proxy for the peripheral
+--- to set the self reference in all the peripheral - calls
+---@param position any
+---@return peripheralActions | nil
+function turtleEmulator:playPeripheralProxy(position)
+    local block = self:getBlock(position)
+    assert(block, "No block at position")
+    local blockAction = block.peripheralActions
+    if blockAction == nil then
+        return nil
+    end
+    local proxy = {}
+    local mt = {}
+    mt.__index = function (_, key)
+        local value = blockAction[key]
+        if type(value) == "function" then
+            return function(...)
+                local mightBeSelf = select(1, ...)
+                if mightBeSelf == blockAction then
+                    return value(...)
+                elseif mightBeSelf == proxy then
+                ---@diagnostic disable-next-line: missing-parameter
+                    return value(blockAction, select(2, ...))
+                end
+                return value(blockAction, ...)
+            end
+        end
+        return value
+    end
+    mt.__newindex = function (_, key, value)
+        blockAction[key] = value
+    end
+    
+    setmetatable(proxy, mt)
+    return proxy
+end
+
+---set vector-lib for the turtleEmulator
 return turtleEmulator

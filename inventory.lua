@@ -30,8 +30,7 @@
 ---@field select fun(self: inventory, slot: integer): boolean
 ---@field list fun(): item[]
 ---@field __index any
-
-local deepCopy = require("../generalFunctions").deepCopy
+---@field deepCopy fun(table: table): table
 
 ---# inventory
 ---Inventory system emulated
@@ -108,7 +107,7 @@ local function pickUpItem(inventory, item, slot)
             local toTransfer = math.min(space, item.count)
 
             local currentCount = getItemCount(inventory, fittingSlot)
-            inventory[fittingSlot] = deepCopy(item)
+            inventory[fittingSlot] = inventory.deepCopy(item)
             if (inventory[fittingSlot] == nil) then
                 inventory[fittingSlot].maxcount = item.maxcount or inventory.defaultMaxSlotSize
             end
@@ -138,12 +137,15 @@ end
 
 --- ### Description:
 ---creates an Instance of of the Inventory class
----@param inventorySize any
-function inventory:createInventory(inventorySize) 
+---@param inventorySize number | nil
+---@param deepCopy fun(table: table): table
+---@return inventory
+function inventory:createInventory(inventorySize, deepCopy) 
     local i = {
         inventorySize = inventorySize or 27,
         selectedSlot = 1,
         defaultMaxSlotSize = 64,
+        deepCopy = deepCopy
     }
     setmetatable(i, self)
     self.__index = self
@@ -224,7 +226,7 @@ function inventory:transferTo(slot, count)
         if currentSlot == nil then
             return true
         end
-        self[slot] = deepCopy(self[self.selectedSlot])
+        self[slot] = self.deepCopy(self[self.selectedSlot])
         self[slot].count =  math.min(self[slot] and self[slot].maxcount or 0 , count)
         local transferTo = math.min(currentSlot.count, count)
         currentSlot.count = currentSlot.count - transferTo

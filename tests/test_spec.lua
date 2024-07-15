@@ -29,13 +29,34 @@
 ---@field equal function
 assert = assert
 
--- functions provided by busted, only available in the global scope
-describe = describe
-it = it
-setup = setup
-before_each = before_each
+-- installs the other suits
+if not pcall(function () io.open("./suits/vector/vector.lua", "r"):close() end) then
+    print("Downloading TestSuite-lib")
+    local http = require("socket.http")
+    local url = "https://raw.githubusercontent.com/mc-cc-scripts/TestSuite-lib/master/installSuit.lua" -- URL of the installer
+    local body, statusCode = http.request(url)
+    if statusCode == 200 then
+        local loader
+        if _VERSION == "Lua 5.1" then 
+            loader = loadstring
+        else
+            loader = load
+        end
+        local installScript = loader(body)().install()
+    else
+        error("Failed to download TestSuite-lib: " .. tostring(statusCode))
+    end
+end
+
+-- load the other suits
+local vector = require("./suits/vector/vector")
+local deepCopy = require("./suits/helperFunctions/helperFunctions").deepCopy
+
+print(deepCopy({a = 1, b = 2, c = 3}))
 
 local turtleEmulator = require("../turtleEmulator")
+turtleEmulator:init(vector, deepCopy)
+local peripheral = require("../peripheral")
 describe("Disabled Movement", function()
     local turtle
     setup(function()
@@ -742,29 +763,72 @@ describe("Place", function()
         assert.are.equal("minecraft:water", block.item.name)
     end)
 end)
-describe("Chest", function()
+describe("peripherals", function()
     local turtle
-    describe("Create Chests", function ()
-        it("Create Chests", function ()
-            turtleEmulator:clearBlocks()
-            turtleEmulator:clearTurtles()
-            turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 1, y = 0, z = 0 } })
-            local block = turtleEmulator:getBlock({ x = 1, y = 0, z = 0 })
-            turtleEmulator:addInventoryToBlock(block.position)
-            block.inventory:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
-            
-            block.inventory:select(2)
-            
-            turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 2, y = 0, z = 0 } })
-            local block2 = turtleEmulator:getBlock({ x = 2, y = 0, z = 0 })
-            turtleEmulator:addInventoryToBlock(block2.position)
-            block2.inventory:select(2)
-            assert.is_true(block2.inventory:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2))
-            assert.are.equal(64, block.inventory:getItemCount(1))
-            assert.are.equal(0, block.inventory:getItemCount(2))
-            assert.are.equal(0, block2.inventory:getItemCount(1))
-            assert.are.equal(64, block2.inventory:getItemCount()) -- slot 2
-            assert.are.equal(64, block2.inventory:getItemCount(2))
-        end)
+    before_each(function()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:clearTurtles()
+        turtle = turtleEmulator:createTurtle()
+    end)
+    it("Create Chests", function ()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:clearTurtles()
+        local block = turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 1, y = 0, z = 0 } })
+        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
+        
+        chest:select(2)
+        
+        local block2 = turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 2, y = 0, z = 0 } })
+        local chest2 = turtleEmulator:addInventoryToBlock({ x = 2, y = 0, z = 0 })
+        chest2:select(2)
+        assert.is_true(chest2:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2))
+        assert.are.equal(64, chest:getItemCount(1))
+        assert.are.equal(0, chest:getItemCount(2))
+        assert.are.equal(0, chest2.getItemCount(1))
+        assert.are.equal(64, chest2.getItemCount()) -- slot 2
+        assert.are.equal(64, chest2.getItemCount(2))
+        -- check the ORIGINAL block in the emulator
+        -- since the return is just a proxy
+        assert.are.equal(64, block2.peripheralActions[2].count)
+    end)
+    it("isPresent", function()
+        turtle.position = { x = 5, y = 0, z = 5 }
+        local p = peripheral.linkToTurtle(turtle)
+
+        local block = turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 5, y = 0, z = 6 } })
+        turtleEmulator:addInventoryToBlock(block.position)
+        assert.is_true(p.isPresent("right"))
+        assert.is_false(p.isPresent("front"))
+        assert.is_false(p.isPresent("left"))
+        assert.is_false(p.isPresent("back"))
+        assert.is_false(p.isPresent("up"))
+        assert.is_false(p.isPresent("down"))
+        local block2 = turtleEmulator:createBlock({ item = {name = "minecraft:chest"}, position = { x = 6, y = 0, z = 5 } })
+        turtleEmulator:addInventoryToBlock(block2.position)
+        assert.is_true(p.isPresent("front"))
+        assert.is_true(p.isPresent("right"))
+        assert.is_false(p.isPresent("left"))
+        assert.is_false(p.isPresent("back"))
+        turtle.turnRight()
+        assert.is_true(p.isPresent("right"))
+        assert.is_true(p.isPresent("back"))
+        assert.is_false(p.isPresent("left"))
+        assert.is_false(p.isPresent("front"))
+        turtle.turnRight()
+        assert.is_true(p.isPresent("back"))
+        assert.is_true(p.isPresent("left"))
+        assert.is_false(p.isPresent("front"))
+        assert.is_false(p.isPresent("right"))
+        turtle.turnRight()
+        assert.is_true(p.isPresent("left"))
+        assert.is_true(p.isPresent("front"))
+        assert.is_false(p.isPresent("right"))
+        assert.is_false(p.isPresent("back"))
+        turtle.turnRight()
+        assert.is_true(p.isPresent("front"))
+        assert.is_true(p.isPresent("right"))
+        assert.is_false(p.isPresent("left"))
+        assert.is_false(p.isPresent("back"))
     end)
 end)
