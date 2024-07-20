@@ -2,15 +2,9 @@
 
 
 ---@alias direction "forward" | "back" | "up" | "down"
----@alias facing
----| 0 North
----| 1 East
----| 2 South
----| 3 West
 ---@alias north integer
 ---@alias east integer
 ---@alias height integer
----@alias position {x: north, y: east, z: height}
 
 
 
@@ -23,8 +17,8 @@
 local defaultInteraction = require("../defaultInteraction")
 local inventory = require("../inventory")
 ---@class TurtleMock
----@field position position | nil
----@field facing facing | nil
+---@field position Vector | nil
+---@field facing Vector | nil
 ---@field canPrint boolean | nil
 ---@field fuelLevel integer | nil
 ---@field inventory inventory | nil
@@ -53,19 +47,12 @@ local function forward(self, act)
     if act == nil then
         act = true
     end
-    ---@type position
-    local newPosition = self.suits.deepCopy(self.position)
-    if self.facing == 0 then
-        newPosition.x = self.position.x + 1
-    elseif self.facing == 1 then
-        newPosition.z = self.position.z + 1
-    elseif self.facing == 2 then
-        newPosition.x = self.position.x - 1
-    elseif self.facing == 3 then
-        newPosition.z = self.position.z - 1
-    end
+
+    ---@type Vector
+    local newPosition = self.position + self.facing
+
     if self.emulator:getBlock(newPosition) ~= nil then
-        return false, "Movement obstructed", newPosition
+        return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
     if self.fuelLevel < 1 then
         return false, "Out of fuel", newPosition
@@ -86,18 +73,9 @@ local function back(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = self.suits.deepCopy(self.position)
-    if self.facing == 0 then
-        newPosition.x = self.position.x - 1
-    elseif self.facing == 1 then
-        newPosition.z = self.position.z - 1
-    elseif self.facing == 2 then
-        newPosition.x = self.position.x + 1
-    elseif self.facing == 3 then
-        newPosition.z = self.position.z + 1
-    end
+    local newPosition = self.position + (self.facing * -1)
     if self.emulator:getBlock(newPosition) ~= nil then
-        return false, "Movement obstructed", newPosition
+        return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
     if self.fuelLevel < 1 then
         return false, "Out of fuel", newPosition
@@ -118,10 +96,9 @@ local function up(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = self.suits.deepCopy(self.position)
-    newPosition.y = self.position.y + 1
+    local newPosition = self.position + self.suits.vector.new(0, 1, 0)
     if self.emulator:getBlock(newPosition) ~= nil then
-        return false, "Movement obstructed", newPosition
+        return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
     if self.fuelLevel < 1 then
         return false, "Out of fuel", newPosition
@@ -143,10 +120,9 @@ local function down(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = self.suits.deepCopy(self.position)
-    newPosition.y = self.position.y - 1
+    local newPosition = self.position + self.suits.vector.new(0, -1, 0)
     if self.emulator:getBlock(newPosition) ~= nil then
-        return false, "Movement obstructed", newPosition
+        return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
     if self.fuelLevel < 1 then
         return false, "Out of fuel", newPosition
@@ -206,15 +182,16 @@ end
 ---
 --- note: Order is left to right on priority on equipment
 ---@param turtle TurtleMock
----@param block block | nil
+---@param block TurtleProxy | block | nil
 ---@param action string
 ---@return boolean
 local function canDoAction(turtle, block, action)
+    assert(block, "Block is nil in canDoAction")
     local text = "Block cannot be interacted with whatsoever, missing Setup."..
         "If you want to prevent the turtle from interacting with the block, "..
-        "set checkActionValid to {'<action>' = {}} or leave it empty to allow all actions"
-    -- check typeof function
-    assert(block and block.checkActionValid, text)
+        "set checkActionValid to {'<action>' = {}}"
+    assert(block.checkActionValid, text)
+        -- check typeof function
     if type(block.checkActionValid) == "function" then
         return block.checkActionValid(turtle.equipslots, action, block)
     end
@@ -240,8 +217,10 @@ local function canDoAction(turtle, block, action)
 
     -- check typeof table
     if type(block.checkActionValid[action]) == "table" then
+        local allTools = true
         ---@diagnostic disable-next-line: param-type-mismatch
         for _, requiredTool in pairs(block.checkActionValid[action]) do
+            allTools = false
             if type(requiredTool) == "string" then
                 if turtle.equipslots.left and requiredTool == turtle.equipslots.left.name then
                     return true
@@ -254,7 +233,7 @@ local function canDoAction(turtle, block, action)
                 return requiredTool(turtle.equipslots, action, block)
             end
         end
-        return false
+        return allTools
     end
     return false
 end 
@@ -263,15 +242,14 @@ end
 ---
 --- Digs the specified block, if possible
 ---@param turtle TurtleProxy | TurtleMock
----@param block block | nil
+---@param block TurtleProxy | block | nil
 ---@return boolean
 ---@return string | nil
 local function dig(turtle, block)
-    
+    assert(block, "Block is nil in dig")
     if not canDoAction(turtle, block, "dig") then
         return false, "Cannot beak block with this tool"
     end
-    assert(block, "Block is nil")
     ---@cast turtle TurtleProxy
     block.onInteration(turtle, block, "dig")
     return true, "Cannot beak block with this tool"
@@ -342,13 +320,15 @@ end
 ---@param emulator TurtleEmulator
 ---@param id number
 ---@param suits table<string, any>
+---@param position Vector
+---@param facingPos Vector
 ---@return TurtleProxy
-function turtleMock.createMock(emulator, id, suits)
+function turtleMock.createMock(emulator, id, suits, position, facingPos)
     local turtle = {
         ---@type position
-        position = { x = 0, y = 0, z = 0 },
-        ---@type facing
-        facing = 0,
+        position = position or suits.vector.new(0, 0, 0),
+        ---@type Vector
+        facing = facingPos or suits.vector.new(1, 0, 0),
         ---@type number
         fuelLevel = 0,
         ---@type boolean
@@ -423,13 +403,17 @@ function turtleMock:down()
     return down(self)
 end
 
-function turtleMock:turnLeft()
-    self.facing = (self.facing - 1) % 4
+function turtleMock:turnRight()
+    local newX = self.facing.x
+    self.facing.x = self.facing.z * -1
+    self.facing.z = newX
     return true
 end
 
-function turtleMock:turnRight()
-    self.facing = (self.facing + 1) % 4
+function turtleMock:turnLeft()
+    local newZ = self.facing.z
+    self.facing.z = self.facing.x * -1
+    self.facing.x = newZ
     return true
 end
 
@@ -546,21 +530,24 @@ function turtleMock:equipRight()
 end
 
 function turtleMock:dig()
-    local _, _, blockPos = forward(self, false)
-    ---@type block | nil
+    local blockPos = self.position + self.facing
     local block = self.emulator:getBlock(blockPos)
-    
+    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digUp()
-    local blockPos = self.emulator:getBlock({x = self.position.x, y = self.position.y + 1, z = self.position.z})
-    return dig(self, blockPos)
+    local blockPos = (self.position + self.suits.vector.new(0, 1, 0))
+    local block = self.emulator:getBlock(blockPos)
+    assert(block, "Block not found at position: " .. tostring(blockPos))
+    return dig(self, block)
 end
 
 function turtleMock:digDown()
-    local blockPos = self.emulator:getBlock({x = self.position.x, y = self.position.y - 1, z = self.position.z})
-    return dig(self, blockPos)
+    local blockPos = (self.position + self.suits.vector.new(0, -1, 0))
+    local block = self.emulator:getBlock(blockPos)
+    assert(block, "Block not found at position: " .. tostring(blockPos))
+    return dig(self, block)
 end
 
 function turtleMock:detect()

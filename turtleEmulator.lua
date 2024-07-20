@@ -12,7 +12,7 @@
 ---@class block
 ---@field item item
 ---@field checkActionValid checkActionValid | nil
----@field position position
+---@field position Vector | nil
 ---@field onInteration onInteration | nil
 ---@field state table<string, any> | nil
 ---@field peripheralActions peripheralActions | nil
@@ -49,8 +49,9 @@ local turtleEmulator = {
     blocks = {},
     turtleID = 1,
     createTurtle = function(self)
+        assert(self.suit.vector, "No Vector-Lib found")
         ---@type TurtleProxy
-        local t = turtleM.createMock(self, self.turtleID, self.suit)
+        local t = turtleM.createMock(self, self.turtleID, self.suit, self.suit.vector.new(0,0,0), self.suit.vector.new(1, 0, 0))
         self.turtles[self.turtleID] = t
         self.turtleID = self.turtleID + 1
         return t
@@ -59,6 +60,9 @@ local turtleEmulator = {
     suit = {}
 }
 
+--- Converts a vector to a point with the format "x,y,z"
+---@param position Vector
+---@return string
 local function createPositionKey(position)
     return position.x .. "," .. position.y .. "," .. position.z
 end
@@ -102,6 +106,7 @@ function turtleEmulator:removeTurtle(turtle)
 end
 
 --- Reads the blocks from the scanner-result and adds them to the emulated world
+--- TODO: Test and Refactor
 ---@param scannResult ScanDataTable
 ---@param checkActionValid checkActionValid | nil
 function turtleEmulator:readBlocks(scannResult, checkActionValid)
@@ -112,7 +117,7 @@ function turtleEmulator:readBlocks(scannResult, checkActionValid)
 end
 
 --- Returns the block at the given position
----@param position position
+---@param position Vector
 ---@return block | TurtleProxy | nil
 function turtleEmulator:getBlock(position)
     for _, t in pairs(self.turtles) do
