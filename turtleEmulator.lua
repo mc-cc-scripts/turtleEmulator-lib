@@ -1,4 +1,4 @@
---- ### Definitions
+--#region Definitions
 
 ---@alias peripheralActions
 ---| inventory
@@ -33,13 +33,20 @@
 ---@class ScanDataTable
 ---@field _ ScanData
 
-
+--#endregion
 
 ---@type TurtleMock
 local turtleM = require("./turtleMock")
 local defaultInteration = require("../defaultInteraction")
 local defaultcheckActionValid = require("./defaultcheckActionValid")
 local inventory = require("./inventory")
+
+---comment
+---@param position Vector
+---@param item item
+local function itemFallsDown(position, item)
+    --TODO: implement ItemBehavior
+end
 
 ---@class TurtleEmulator
 local turtleEmulator = {
@@ -181,11 +188,32 @@ function turtleEmulator:playPeripheralProxy(position)
     end
     mt.__newindex = function (_, key, value)
         blockAction[key] = value
-    end
-    
+    end   
     setmetatable(proxy, mt)
+    proxy.block = block
     return proxy
 end
 
+---@param position Vector
+---@param item item
+---@return boolean Success
+function turtleEmulator:turtleDrop(position, item)
+    local block = self:getBlock(position)
+    -- if there is no block at the position, the item will fall down (currently voided)
+    if block == nil then
+        itemFallsDown(position, item)
+        return true
+    end
+    -- if there is a block, but no peripheralActions, the item will fall down (somewhere, currently voided)
+    if block.peripheralActions == nil then
+        itemFallsDown(position, item)
+        return true
+    end
+
+    if block.peripheralName == "inventory" then
+        return block.peripheralActions:addItemToInventory(item)
+    end
+
+end
 ---set vector-lib for the turtleEmulator
 return turtleEmulator

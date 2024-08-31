@@ -29,29 +29,9 @@
 ---@field equal function
 assert = assert
 
--- installs the other suits
-if not pcall(function() io.open("./suits/vector/vector.lua", "r"):close() end) then
-    print("Downloading TestSuite-lib")
-    local http = require("socket.http")
-    local url =
-    "https://raw.githubusercontent.com/mc-cc-scripts/TestSuite-lib/master/installSuit.lua" -- URL of the installer
-    local body, statusCode = http.request(url)
-    if statusCode == 200 then
-        local loader
-        if _VERSION == "Lua 5.1" then
-            loader = loadstring
-        else
-            loader = load
-        end
-        local installScript = loader(body)().install()
-    else
-        error("Failed to download TestSuite-lib: " .. tostring(statusCode))
-    end
-end
-
 -- load the other suits
-local vector = require("./suits/vector/vector")
-local deepCopy = require("./suits/helperFunctions/helperFunctions").deepCopy
+local vector = require("./TestSuite-lib/vector/vector")
+local deepCopy = require("./TestSuite-lib/helperFunctions/helperFunctions").deepCopy
 
 local turtleEmulator = require("../turtleEmulator")
 turtleEmulator:init(vector, deepCopy)
@@ -74,6 +54,8 @@ describe("Disabled Movement", function()
     end)
     it("Can't move to back", function()
         turtleEmulator:createBlock({ item = { name = "minecraft:stone" }, position = vector.new(-1, 0, 0) })
+
+
         local c, e = turtle.back()
         assert.is.falsy(c)
         assert.are.equal(1, string.find(e, "Movement obstructed"))
@@ -573,7 +555,7 @@ describe("ActionAccepted", function()
             onInteration =
                 dirtInteraction
         })
-        turtleEmulator:createBlock({ item = { name = "minecraft:cobblestone" }, position = vector.new(nil, -1, 3), checkActionValid = { ["dig"] = {} } })
+        turtleEmulator:createBlock({ item = { name = "minecraft:cobblestone" }, position = vector.new(0, -1, 3), checkActionValid = { ["dig"] = {} } })
         turtle1 = turtleEmulator:createTurtle()
         turtle1:addItemToInventory({ name = "minecraft:axe", count = 1, maxcount = 1, equipable = true }, 1)
         turtle1:addItemToInventory({ name = "minecraft:pickaxe", count = 1, maxcount = 1, equipable = true }, 2)
@@ -654,16 +636,16 @@ describe("Detect, Compare, Inspect", function()
         turtleEmulator:clearBlocks()
         turtleEmulator:clearTurtles()
         turtle = turtleEmulator:createTurtle()
-        turtleEmulator:createBlock({ item = { name = "minecraft:stone" }, position = vector.new(1, nil, nil) })
-        turtleEmulator:createBlock({ item = { name = "minecraft:wood" }, position = vector.new(nil, 1, nil), state = { burning = true } })
+        turtleEmulator:createBlock({ item = { name = "minecraft:stone" }, position = vector.new(1, 0, 0) })
+        turtleEmulator:createBlock({ item = { name = "minecraft:wood" }, position = vector.new(0, 1, 0), state = { burning = true } })
     end)
     it("Detect", function()
-        turtleEmulator:createBlock({ item = { name = "minecraft:stone" }, position = vector.new(1, nil, nil) })
+        turtleEmulator:createBlock({ item = { name = "minecraft:stone" }, position = vector.new(1, 0, 0) })
         assert.is_true(turtle.detect())
         assert.is_true(turtle.detectUp())
         assert.is_false(turtle.detectDown())
         turtleEmulator:createBlock({ item = { name = "minecraft:obsidian", tag = { ["minecraft:minable/pickaxe"] = true } }, position =
-            vector.new(nil, -1, nil) })
+            vector.new(0, -1, 0) })
         assert.is_true(turtle.detectDown())
     end)
     it("Compare", function()
@@ -672,7 +654,7 @@ describe("Detect, Compare, Inspect", function()
         assert.is_true(turtle.compare())
         assert.is_false(turtle.compareUp())
         turtleEmulator:createBlock({ item = { name = "minecraft:obsidian", tag = { ["minecraft:minable/pickaxe"] = true } }, position =
-            vector.new(nil, -1, nil) })
+            vector.new(0, -1, 0) })
         assert.is_false(turtle.compareDown())
         turtle:addItemToInventory({ name = "minecraft:obsidian", count = 1, maxcount = 64 })
         turtle.select(2)
@@ -705,7 +687,7 @@ describe("Detect, Compare, Inspect", function()
         assert.is_false(succ)
         assert.are.equal(nil, info)
         turtleEmulator:createBlock({ item = { name = "minecraft:obsidian", tags = { ["minecraft:minable/pickaxe"] = true } }, position =
-        vector.new(nil, -1, nil) })
+        vector.new(0, -1, 0) })
         succ, info = turtle.inspectDown()
         assert.is_true(succ)
         ---@cast info inspectResult
@@ -769,7 +751,7 @@ describe("Place", function()
                 placeAction
         }
         turtle:addItemToInventory(item, 1)
-        local position = vector.new(1, nil, nil)
+        local position = vector.new(1, 0, 0)
         local block = turtleEmulator:getBlock(position)
         assert.are.equal(nil, block)
         turtle.place()
@@ -778,23 +760,27 @@ describe("Place", function()
     end)
 end)
 describe("peripherals", function()
+    ---@type TurtleProxy
     local turtle
+    ---@type PeripheralModule
+    local pModule
     before_each(function()
         turtleEmulator:clearBlocks()
         turtleEmulator:clearTurtles()
         turtle = turtleEmulator:createTurtle()
+        pModule = turtle.getPeripheralModule()
     end)
     it("Create Chests", function()
         turtleEmulator:clearBlocks()
         turtleEmulator:clearTurtles()
-        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, nil, nil) })
+        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, 0, 0) })
         local chest = turtleEmulator:addInventoryToBlock(block.position)
         chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
 
         chest:select(2)
 
-        local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(2, nil,
-            nil) })
+        local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(2, 0,
+            0) })
         local chest2 = turtleEmulator:addInventoryToBlock({ x = 2, y = 0, z = 0 })
         chest2:select(2)
         assert.is_true(chest2:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2))
@@ -807,43 +793,96 @@ describe("peripherals", function()
         -- since the return is just a proxy
         assert.are.equal(64, block2.peripheralActions[2].count)
     end)
-    -- it("isPresent", function()
-    --     turtle.position = vector.new(5, nil, 5 )
-    --     local p = peripheral.linkToTurtle(turtle)
-
-    --     local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(5, nil, 6 ) })
-    --     turtleEmulator:addInventoryToBlock(block.position)
-    --     assert.is_true(p.isPresent("right"))
-    --     assert.is_false(p.isPresent("front"))
-    --     assert.is_false(p.isPresent("left"))
-    --     assert.is_false(p.isPresent("back"))
-    --     assert.is_false(p.isPresent("up"))
-    --     assert.is_false(p.isPresent("down"))
-    --     local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(6, nil, 5) })
-    --     turtleEmulator:addInventoryToBlock(block2.position)
-    --     assert.is_true(p.isPresent("front"))
-    --     assert.is_true(p.isPresent("right"))
-    --     assert.is_false(p.isPresent("left"))
-    --     assert.is_false(p.isPresent("back"))
-    --     turtle.turnRight()
-    --     assert.is_true(p.isPresent("right"))
-    --     assert.is_true(p.isPresent("back"))
-    --     assert.is_false(p.isPresent("left"))
-    --     assert.is_false(p.isPresent("front"))
-    --     turtle.turnRight()
-    --     assert.is_true(p.isPresent("back"))
-    --     assert.is_true(p.isPresent("left"))
-    --     assert.is_false(p.isPresent("front"))
-    --     assert.is_false(p.isPresent("right"))
-    --     turtle.turnRight()
-    --     assert.is_true(p.isPresent("left"))
-    --     assert.is_true(p.isPresent("front"))
-    --     assert.is_false(p.isPresent("right"))
-    --     assert.is_false(p.isPresent("back"))
-    --     turtle.turnRight()
-    --     assert.is_true(p.isPresent("front"))
-    --     assert.is_true(p.isPresent("right"))
-    --     assert.is_false(p.isPresent("left"))
-    --     assert.is_false(p.isPresent("back"))
-    -- end)
+    it("isPresent", function()
+        turtle.position = vector.new(5, 0, 5 )
+        turtle.facing = vector.new(1, 0, 0)
+        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(5, 0, 6 ) })
+        turtleEmulator:addInventoryToBlock(block.position)
+        ---     o.o
+        --- ___|___|___
+        --- ___|_t_|_x_
+        ---    |   |
+        assert.is_false(pModule.isPresent("front"))
+        assert.is_false(pModule.isPresent("left"))
+        assert.is_false(pModule.isPresent("back"))
+        assert.is_false(pModule.isPresent("up"))
+        assert.is_false(pModule.isPresent("down"))
+        assert.is_true(pModule.isPresent("right"))
+        local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(6, 0, 5) })
+        turtleEmulator:addInventoryToBlock(block2.position)
+        ---     o.o
+        --- ___|_x_|___
+        --- ___|_t_|_x_
+        ---    |   |
+        assert.is_true(pModule.isPresent("front"))
+        assert.is_true(pModule.isPresent("right"))
+        assert.is_false(pModule.isPresent("left"))
+        assert.is_false(pModule.isPresent("back"))
+        turtle.turnRight()
+        ---     
+        --- ___|_x_|___
+        --- ___|_t_|_x_ o.o
+        ---    |   |
+        assert.is_false(pModule.isPresent("right"))
+        assert.is_false(pModule.isPresent("back"))
+        assert.is_true(pModule.isPresent("left"))
+        assert.is_true(pModule.isPresent("front"))
+        turtle.turnRight()
+        --- ___|_x_|___
+        --- ___|_t_|_x_
+        --- ___|   |   
+        ---     o.o
+        assert.is_true(pModule.isPresent("back"))
+        assert.is_true(pModule.isPresent("left"))
+        assert.is_false(pModule.isPresent("front"))
+        assert.is_false(pModule.isPresent("right"))
+        turtle.turnRight()
+        ---      ___|_x_|___
+        --- o.o  ___|_t_|_x_
+        ---      ___|   |   
+        assert.is_false(pModule.isPresent("left"))
+        assert.is_false(pModule.isPresent("front"))
+        assert.is_true(pModule.isPresent("right"))
+        assert.is_true(pModule.isPresent("back"))
+        turtle.turnRight()
+        ---         o.o
+        ---     ___|_x_|___
+        ---     ___|_t_|_x_
+        ---     ___|   |
+        assert.is_true(pModule.isPresent("front"))
+        assert.is_true(pModule.isPresent("right"))
+        assert.is_false(pModule.isPresent("left"))
+        assert.is_false(pModule.isPresent("back"))
+    end)
+    it("Can Access Chest", function()
+        turtle.position = vector.new(5, 0, 5 )
+        turtle.facing = vector.new(1, 0, 0)
+        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(5, 0, 6 ) })
+        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
+        ---@type inventory | nil
+        local chestPeripheral = pModule.find("inventory")
+        assert.True(chestPeripheral ~= nil)
+        assert.are.equal(64, chestPeripheral.getItemCount())
+    end)
+    it("Can drop items", function ()
+        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, 0, 0 ) })
+        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        turtle.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 1)
+        turtle.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2)
+        turtle.select(1)
+        assert.is_true(turtle.drop())
+        assert.are.equal(1, chest.getItemCount())
+        turtle.select(2)
+        assert.is_true(turtle.drop(64))
+        assert.are.equal(64, chest.getItemCount())
+        assert.are.equal(1, chest.getItemCount(2))
+        assert.are.equal(63,turtle.getItemCount(1))
+        assert.are.equal(0,turtle.getItemCount(2))
+        turtle.select(1)
+        assert.is_true(turtle.dropDown())
+        assert.are.equal(62, turtle.getItemCount(1))
+        assert.is_true(turtle.dropUp(64)) -- will work even if there are not enough items
+        assert.are.equal(0, turtle.getItemCount(1))
+    end)
 end)

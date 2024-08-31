@@ -29,6 +29,7 @@
 ---@field findFittingSlot fun(self: inventory, item: item, slot: integer): number
 ---@field select fun(self: inventory, slot: integer): boolean
 ---@field list fun(): item[]
+---@field getType fun(): string
 ---@field __index any
 ---@field deepCopy fun(table: table): table
 
@@ -163,7 +164,7 @@ function inventory:removeItem( slot, count)
         return false, "No item in the slot"
     end
     if item.count < count then
-        return false, "Not enough items in the slot"
+        count = item.count
     end
     item.count = item.count - count
     if item.count == 0 then
@@ -299,6 +300,10 @@ function inventory:list()
         table.insert(items, inventory:getItemDetail(i))
     end
     return items
+end
+
+function inventory:getType()
+    return "inventory"
 end
 
 --#endregion

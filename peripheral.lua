@@ -1,3 +1,21 @@
+--[[
+
+The Peripheral is a Module for the Turtle-Mock
+--------------
+
+Notes:
+
+
+- Each turtle will get their own module instance, which is in turn linked to the turtle.
+
+- The peripheral-Module will enable the usage of Peripherals in the Suit.
+
+- Each Peripheral will be wrapped by the peripheral-Module and can then be accessed by the turtle,
+to simulate the normal behavior of a turtle interacting with a peripheral.
+
+]]
+
+
 ---@alias filterFunc fun(name: string, wrapped: table):boolean
 
 ---@alias relativePosition
@@ -8,51 +26,85 @@
 --- | "left"
 --- | "right"
 
----@class peripheral
+local relativePositionOptions = {
+    ["right"] = true,
+    ["left"] = true,
+    ["front"] = true,
+    ["back"] = true,
+    ["top"] = true,
+    ["bottom"] = true
+}
+
+---@class PeripheralModule
 ---@field turtle TurtleMock
----@field linkToTurtle fun(peripheral: peripheral, turtle: TurtleMock):peripheral
----@field find fun(peripheral: peripheral, typeName: string, filterFunc: filterFunc | nil):table | nil
----@field getMethods fun(peripheral: peripheral, name: any):string[] | nil
----@field getNames fun(peripheral: peripheral):string[]
----@field isPresent fun(peripheral: peripheral, positionOrname: any):boolean
----@field __index peripheral
+---@field linkToTurtle fun(peripheral: PeripheralModule, turtle: TurtleMock):PeripheralModule
+---@field find fun(peripheral: PeripheralModule, typeName: string, filterFunc: filterFunc | nil):table | nil
+---@field getMethods fun(peripheral: PeripheralModule, name: any):string[] | nil
+---@field getNames fun(peripheral: PeripheralModule):string[]
+---@field isPresent fun(peripheral: PeripheralModule, positionOrname: any):boolean
+---@field getType fun(peripheral: PeripheralModule, Peripheral: peripheralActions):string|nil
+---@field __index PeripheralModule
 
+--- Maps the relative positions of the turtle to the absolute positions of the emulator
 ---@param turtle TurtleMock
----@return position[]
-local function getPositions(turtle)
-
-    return pos
+---@return table<relativePosition, Vector>
+local function positionMapper(turtle)
+    local vector = turtle.emulator.suit.vector
+    return {
+        ["front"] = turtle.position + turtle.facing,
+        ["back"] = turtle.position - turtle.facing,
+        ["left"] = turtle.position - turtle.facing:cross(vector.new(0, 1, 0)),
+        ["right"] = turtle.position + turtle.facing:cross(vector.new(0, 1, 0)),
+        ["top"] = turtle.position + vector.new(0, 1, 0),
+        ["bottom"] = turtle.position + vector.new(0, -1, 0),
+    }
 end
 
----@type peripheral
+---@param turtle TurtleMock
+---@return table<number, block>
+local function getNearbyPeripheralBlocks(turtle)
+    local positions = {}
+    for _, position in pairs(positionMapper(turtle)) do
+        local block = turtle.emulator:getBlock(position)
+        if block and block.peripheralActions then
+            table.insert(positions, block)
+        end
+    end
+    return positions
+end
+
+---@type PeripheralModule
 ---@diagnostic disable-next-line: missing-fields
-local peripheral = {}
+local peripheralModule = {}
 ---create a new instance of a peripheral and link it to a turtle
 ---@param turtle TurtleMock
----@return peripheral
-function peripheral:linkToTurtle(turtle)
-    local mt = {
+---@return PeripheralModule
+function peripheralModule:linkToTurtle(turtle)
+    assert(turtle, "Parameters: 1. self and 2. 'turtle' which must be of type TurtleMock")
+    local _peripheralModule = {
         turtle = turtle,
     }
+    setmetatable(_peripheralModule, {__index = peripheralModule})
+    local mt = {}
     local proxy = {}
     mt.__index = function (_, key)
-        local value = peripheral[key]
+        local value = _peripheralModule[key]
         if type(value) == "function" then
             return function(...)
                 local mightBeSelf = select(1, ...)
-                if mightBeSelf == peripheral then
+                if mightBeSelf == _peripheralModule then
                     return value(...)
                 elseif mightBeSelf == proxy then
                 ---@diagnostic disable-next-line: missing-parameter
-                    return value(peripheral, select(2, ...))
+                    return value(_peripheralModule, select(2, ...))
                 end
-                return value(peripheral, ...)
+                return value(_peripheralModule, ...)
             end
         end
         return value
     end
     mt.__newindex = function (_, key, value)
-        peripheral[key] = value
+        _peripheralModule[key] = value
     end
     
     setmetatable(proxy, mt)
@@ -60,18 +112,19 @@ function peripheral:linkToTurtle(turtle)
     
 end
 
----@param self peripheral
+---@param self PeripheralModule
 ---@param typeName string
 ---@param filterFunc filterFunc | nil
----@return table
-function peripheral:find(typeName, filterFunc)
+---@return table | nil
+function peripheralModule:find(typeName, filterFunc)
     assert(self.turtle, "Peripheral is not linked to a turtle")
-    local positions = getPositions(self.turtle.position)
+    local positions = getNearbyPeripheralBlocks(self.turtle)
     local peripheral
     for _, position in pairs(positions) do
-        local block = self.turtle.emulator:getBlock(position)
+        local block = position
         if block and block.peripheralName and block.peripheralName == typeName then
-            peripheral = self.turtle.emulator:playPeripheralProxy(block)
+            print("Position: ", block.position)
+            peripheral = self.turtle.emulator:playPeripheralProxy(block.position)
             if peripheral and ((not filterFunc) or filterFunc(block.item.name, peripheral)) then
                 return peripheral
             end
@@ -82,7 +135,7 @@ end
 ---returns all the functions of a peripheral with the given name
 ---@param name any
 ---@return string[] | nil
-function peripheral:getMethods(name)
+function peripheralModule:getMethods(name)
     local p = self:find(name)
     if not p then return nil end
     local methods = {}
@@ -95,11 +148,10 @@ function peripheral:getMethods(name)
 end
 
 ---@return string[]
-function peripheral:getNames()
+function peripheralModule:getNames()
     local names = {}
-    local positions = getPositions(self.turtle.position)
-    for _, position in pairs(positions) do
-        local block = self.turtle.emulator:getBlock(position)
+    local blocks = getNearbyPeripheralBlocks(self.turtle)
+    for _, block in ipairs(blocks) do
         if block and block.peripheralName then
             if block.peripheralActions then
                 table.insert(names, block.item.name)
@@ -112,8 +164,24 @@ end
 --- Checks if a peripheral is present at the given position or with a given name
 ---@param positionOrname any
 ---@return boolean
-function peripheral:isPresent(positionOrname)
-
+function peripheralModule:isPresent(positionOrname)
+    assert(type(positionOrname) == "string", "Parameter: 'positionOrname' must be a string")
+    if relativePositionOptions[positionOrname] ~= nil then
+        local position = positionMapper(self.turtle)[positionOrname]
+        local block = self.turtle.emulator:getBlock(position)
+        return (block ~= nil) and (block.peripheralActions ~= nil)
+    else
+        local peripheral = self:find(positionOrname)
+        return peripheral ~= nil
+    end
 end
 
-return peripheral
+
+---Gets the type of the peripheral at the given position
+---@param peripheralActions peripheralActions
+---@return string|nil
+function peripheralModule:getType(peripheralActions)
+    return peripheralActions:getType();
+end
+
+return peripheralModule

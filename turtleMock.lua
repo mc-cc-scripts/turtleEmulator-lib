@@ -1,12 +1,10 @@
 
-
+--#region Definitions
 
 ---@alias direction "forward" | "back" | "up" | "down"
 ---@alias north integer
 ---@alias east integer
 ---@alias height integer
-
-
 
 ---@alias left string
 ---@alias right string
@@ -14,8 +12,6 @@
 
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
-local defaultInteraction = require("../defaultInteraction")
-local inventory = require("../inventory")
 ---@class TurtleMock
 ---@field position Vector | nil
 ---@field facing Vector | nil
@@ -27,12 +23,61 @@ local inventory = require("../inventory")
 ---@field emulator TurtleEmulator | nil
 ---@field id number | nil
 ---@field suits Suits | nil
-
+---@field peripheralModule PeripheralModule
+---@field createMock fun(emulator: TurtleEmulator, id: number, suits: Suits, position: Vector, facingPos: Vector):TurtleProxy
+---@field forward fun(act: boolean | nil):boolean, string | nil, position
+---@field back fun(act: boolean | nil):boolean, string | nil, position
+---@field up fun(act: boolean | nil):boolean, string | nil, position
+---@field down fun(act: boolean | nil):boolean, string | nil, position
+---@field turnRight fun():boolean
+---@field turnLeft fun():boolean
+---@field getSelectedSlot fun():integer
+---@field getItemCount fun(slot: integer):integer
+---@field getItemSpace fun(slot: integer):integer
+---@field getItemDetail fun(slot: integer | nil):item | nil
+---@field compareTo fun(slot: integer):boolean
+---@field transferTo fun(slot: integer, count: integer):boolean, string | nil
+---@field select fun(slot: integer):boolean
+---@field getFuelLevel fun():integer
+---@field getFuelLimit fun():integer
+---@field refuel fun(count: integer | nil):boolean, string | nil
+---@field equipLeft fun():boolean
+---@field equipRight fun():boolean
+---@field dig fun():boolean, string | nil
+---@field digUp fun():boolean, string | nil
+---@field digDown fun():boolean, string | nil
+---@field detect fun():boolean
+---@field detectUp fun():boolean
+---@field detectDown fun():boolean
+---@field compare fun():boolean
+---@field compareUp fun():boolean
+---@field compareDown fun():boolean
+---@field inspect fun():boolean, inspectResult
+---@field inspectUp fun():boolean, inspectResult
+---@field inspectDown fun():boolean, inspectResult
+---@field place fun():boolean, string | nil
+---@field placeUp fun():boolean, string | nil
+---@field placeDown fun():boolean, string | nil
+---@field dropDown fun(count: integer):boolean
+---@field dropUp fun(count: integer):boolean
+---@field drop fun(count: integer):boolean
+---@field print fun(...: any):nil only exists for testing purposes
+---@field getPeripheralModule fun():PeripheralModule only exists for testing purposes
+---@field addItemToInventory fun(item: item, slot: number | nil):boolean only exists for testing purposes
+---@field removeItem fun(turtle: TurtleMock, slot: integer, count: integer):boolean only exists for testing purposes
 
 ---@class TurtleProxy : TurtleMock
+--#endregion
+
+
+
+local peripheral = require("../peripheral")
+local defaultInteraction = require("../defaultInteraction")
+local inventory = require("../inventory")
 
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
----@class TurtleMock
+---@type TurtleMock
+---@diagnostic disable-next-line: missing-fields
 local turtleMock = {
 
 }
@@ -162,7 +207,7 @@ local function equip(turtle, slot, side)
         turtle.equipslots[side] = itemCopy
     end
     turtle.equipslots[side].count = 1
-    turtle.inventory:removeItem(slot, 1)
+    turtle:removeItem(slot, 1)
     if equipedItem ~= nil then
         local newSlot = turtle.inventory:findFittingSlot(equipedItem, slot)
         if newSlot ~= nil then
@@ -317,6 +362,25 @@ local function place(turtle, position)
     return turtle.inventory:removeItem(turtle.inventory.selectedSlot, 1)
 end
 
+---@param turtle TurtleProxy | TurtleMock
+---@param position Vector
+---@param count number
+local function drop(turtle, position, count)
+    local _item = turtle.inventory[turtle.inventory.selectedSlot]
+    if _item == nil then
+        return false, "No item to drop"
+    end
+    local item = turtle.emulator.suit.deepCopy(_item)
+    count = count or 1
+    item.count = count
+
+    local succ = turtle.emulator:turtleDrop(position, item)
+    if succ then
+        return turtle.inventory:removeItem(turtle.inventory.selectedSlot, count)
+    end
+    return false
+end
+
 ---@param emulator TurtleEmulator
 ---@param id number
 ---@param suits table<string, any>
@@ -384,7 +448,12 @@ function turtleMock.createMock(emulator, id, suits, position, facingPos)
     mt.__metatable = mt
 
     setmetatable(proxy, mt)
+    proxy.peripheralModule = peripheral:linkToTurtle(proxy)
     return proxy
+end
+
+function turtleMock:getPeripheralModule()
+    return self.peripheralModule;
 end
 
 function turtleMock:forward()
@@ -453,6 +522,9 @@ function turtleMock:compareTo(slot)
     return self.inventory:compareTo(slot)
 end
 
+---@param slot integer
+---@param count integer
+---@return boolean
 function turtleMock:removeItem(slot, count)
     return self.inventory:removeItem(slot, count)
 end
@@ -613,8 +685,23 @@ function turtleMock:placeDown()
     return place(self, blockPos)
 end
 
+---@param count integer
+---@return boolean
+function turtleMock:dropDown(count)
+    return drop(self, self.position + self.suits.vector.new(0, -1, 0), count)
+end
 
+---@param count integer
+---@return boolean
+function turtleMock:dropUp(count)
+    return drop(self, self.position + self.suits.vector.new(0, 1, 0), count)
+end
 
+---@param count integer
+---@return boolean
+function turtleMock:drop(count)
+    return drop(self, self.position + self.facing, count)
+end
 ---will only print content if canPrint is set to true
 ---@param ... any
 ---@return nil
