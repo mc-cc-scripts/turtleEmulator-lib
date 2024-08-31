@@ -16,6 +16,7 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 ]]
 
 
+--#region Definitions
 ---@alias filterFunc fun(name: string, wrapped: table):boolean
 
 ---@alias relativePosition
@@ -26,14 +27,7 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 --- | "left"
 --- | "right"
 
-local relativePositionOptions = {
-    ["right"] = true,
-    ["left"] = true,
-    ["front"] = true,
-    ["back"] = true,
-    ["top"] = true,
-    ["bottom"] = true
-}
+
 
 ---@class PeripheralModule
 ---@field turtle TurtleMock
@@ -44,12 +38,23 @@ local relativePositionOptions = {
 ---@field isPresent fun(peripheral: PeripheralModule, positionOrname: any):boolean
 ---@field getType fun(peripheral: PeripheralModule, Peripheral: peripheralActions):string|nil
 ---@field __index PeripheralModule
+--#endregion
 
+---@type Vector
+local vector = require("./TestSuite-lib/vector/vector")
+
+local relativePositionOptions = {
+    ["right"] = true,
+    ["left"] = true,
+    ["front"] = true,
+    ["back"] = true,
+    ["top"] = true,
+    ["bottom"] = true
+}
 --- Maps the relative positions of the turtle to the absolute positions of the emulator
 ---@param turtle TurtleMock
 ---@return table<relativePosition, Vector>
 local function positionMapper(turtle)
-    local vector = turtle.emulator.suit.vector
     return {
         ["front"] = turtle.position + turtle.facing,
         ["back"] = turtle.position - turtle.facing,

@@ -18,10 +18,6 @@
 ---@field peripheralActions peripheralActions | nil
 ---@field peripheralName string | nil
 
----@class Suits
----@field vector Vector
----@field deepCopy fun(table: table): table
----
 --- used from the Scanner, as the blocks will most likely be scanned, saved and then inserted into the turtleEmulator for testing
 ---@class ScanData
 ---@field x number
@@ -40,6 +36,8 @@ local turtleM = require("./turtleMock")
 local defaultInteration = require("../defaultInteraction")
 local defaultcheckActionValid = require("./defaultcheckActionValid")
 local inventory = require("./inventory")
+---@type Vector
+local vector = require("./TestSuite-lib/vector/vector")
 
 ---comment
 ---@param position Vector
@@ -56,9 +54,9 @@ local turtleEmulator = {
     blocks = {},
     turtleID = 1,
     createTurtle = function(self)
-        assert(self.suit.vector, "No Vector-Lib found")
+        assert(vector, "No Vector-Lib found")
         ---@type TurtleProxy
-        local t = turtleM.createMock(self, self.turtleID, self.suit, self.suit.vector.new(0,0,0), self.suit.vector.new(1, 0, 0))
+        local t = turtleM.createMock(self, self.turtleID, self.suit, vector.new(0,0,0), vector.new(1, 0, 0))
         self.turtles[self.turtleID] = t
         self.turtleID = self.turtleID + 1
         return t
@@ -72,16 +70,6 @@ local turtleEmulator = {
 ---@return string
 local function createPositionKey(position)
     return position.x .. "," .. position.y .. "," .. position.z
-end
-
---- required for vector-library
----@param vector Vector
----@param copyTableFunction fun(table: table): table
-function turtleEmulator:init(vector, copyTableFunction)
-    assert("table" == type(vector), "vector is not a table, but of type: " .. type(vector))
-    assert("function" == type(copyTableFunction), "copyTableFunction is not a function, but of type: " .. type(copyTableFunction))
-    turtleEmulator.suit.vector = vector
-    turtleEmulator.suit.deepCopy = copyTableFunction
 end
 
 --- Adds a block to the emulated world
@@ -152,7 +140,7 @@ function turtleEmulator:addInventoryToBlock(position)
     if block == nil then
         return
     end
-    block.peripheralActions = inventory:createInventory(nil, self.suit.deepCopy)
+    block.peripheralActions = inventory:createInventory(nil)
     block.peripheralName = "inventory"
     return self:playPeripheralProxy(position)
 end

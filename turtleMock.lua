@@ -74,6 +74,10 @@
 local peripheral = require("../peripheral")
 local defaultInteraction = require("../defaultInteraction")
 local inventory = require("../inventory")
+---@type Vector
+local vector = require("./TestSuite-lib/vector/vector")
+local deepCopy = require("./TestSuite-lib/helperFunctions/helperFunctions").deepCopy
+
 
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
 ---@type TurtleMock
@@ -141,7 +145,7 @@ local function up(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = self.position + self.suits.vector.new(0, 1, 0)
+    local newPosition = self.position + vector.new(0, 1, 0)
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
@@ -165,7 +169,7 @@ local function down(self, act)
     if act == nil then
         act = true
     end
-    local newPosition = self.position + self.suits.vector.new(0, -1, 0)
+    local newPosition = self.position + vector.new(0, -1, 0)
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
@@ -199,7 +203,7 @@ local function equip(turtle, slot, side)
         return false, "Not a valid upgrade"
     end
     local equipedItem
-    local itemCopy = turtle.suits.deepCopy(item)
+    local itemCopy = deepCopy(item)
     if turtle.equipslots == nil  then
             turtle.equipslots = {side = itemCopy}
     else
@@ -370,7 +374,7 @@ local function drop(turtle, position, count)
     if _item == nil then
         return false, "No item to drop"
     end
-    local item = turtle.emulator.suit.deepCopy(_item)
+    local item = deepCopy(_item)
     count = count or 1
     item.count = count
 
@@ -390,15 +394,15 @@ end
 function turtleMock.createMock(emulator, id, suits, position, facingPos)
     local turtle = {
         ---@type position
-        position = position or suits.vector.new(0, 0, 0),
+        position = position or vector.new(0, 0, 0),
         ---@type Vector
-        facing = facingPos or suits.vector.new(1, 0, 0),
+        facing = facingPos or vector.new(1, 0, 0),
         ---@type number
         fuelLevel = 0,
         ---@type boolean
         canPrint = false,
         ---@type inventory
-        inventory = inventory:createInventory(16, suits.deepCopy),
+        inventory = inventory:createInventory(16),
         ---@type integer
         selectedSlot = 1,
         ---@type integer
@@ -609,14 +613,14 @@ function turtleMock:dig()
 end
 
 function turtleMock:digUp()
-    local blockPos = (self.position + self.suits.vector.new(0, 1, 0))
+    local blockPos = (self.position + vector.new(0, 1, 0))
     local block = self.emulator:getBlock(blockPos)
     assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digDown()
-    local blockPos = (self.position + self.suits.vector.new(0, -1, 0))
+    local blockPos = (self.position + vector.new(0, -1, 0))
     local block = self.emulator:getBlock(blockPos)
     assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
@@ -688,13 +692,13 @@ end
 ---@param count integer
 ---@return boolean
 function turtleMock:dropDown(count)
-    return drop(self, self.position + self.suits.vector.new(0, -1, 0), count)
+    return drop(self, self.position + vector.new(0, -1, 0), count)
 end
 
 ---@param count integer
 ---@return boolean
 function turtleMock:dropUp(count)
-    return drop(self, self.position + self.suits.vector.new(0, 1, 0), count)
+    return drop(self, self.position + vector.new(0, 1, 0), count)
 end
 
 ---@param count integer

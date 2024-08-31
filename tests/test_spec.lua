@@ -34,7 +34,6 @@ local vector = require("./TestSuite-lib/vector/vector")
 local deepCopy = require("./TestSuite-lib/helperFunctions/helperFunctions").deepCopy
 
 local turtleEmulator = require("../turtleEmulator")
-turtleEmulator:init(vector, deepCopy)
 local peripheral = require("../peripheral")
 describe("Disabled Movement", function()
     local turtle
