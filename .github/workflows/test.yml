@@ -1,6 +1,8 @@
 name: Busted
 
+    
 on: [push, pull_request]
+
 
 jobs:
   test:
@@ -9,6 +11,8 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: get lua
       uses: leafo/gh-actions-lua@v10
