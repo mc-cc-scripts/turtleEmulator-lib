@@ -17,12 +17,11 @@
 ---@field facing Vector | nil
 ---@field canPrint boolean | nil
 ---@field fuelLevel integer | nil
----@field inventory inventory | nil
+---@field inventory TurtleInventory | nil
 ---@field fuelLimit integer | nil
 ---@field equipslots equipslots | nil
 ---@field emulator TurtleEmulator | nil
 ---@field id number | nil
----@field suits Suits | nil
 ---@field peripheralModule PeripheralModule
 ---@field createMock fun(emulator: TurtleEmulator, id: number, suits: Suits, position: Vector, facingPos: Vector):TurtleProxy
 ---@field forward fun(act: boolean | nil):boolean, string | nil, position
@@ -73,19 +72,86 @@
 
 local peripheral = require("../peripheral")
 local defaultInteraction = require("../defaultInteraction")
-local inventory = require("../inventory")
+local turtleInventory = require("../inventory/turtleInventory")
 ---@type Vector
 local vector = require("./TestSuite-lib/vector/vector")
 local deepCopy = require("./TestSuite-lib/helperFunctions/helperFunctions").deepCopy
 
-
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
 ---@type TurtleMock
 ---@diagnostic disable-next-line: missing-fields
-local turtleMock = {
+local turtleMock = {}
 
-}
+--- first parameter will automaticly be filled by the .__call metamethod
+---@param emulator TurtleEmulator
+---@param id number
+---@param position Vector
+---@param facingPos Vector
+---@return TurtleProxy
+local function createTurtleMock(_, emulator, id, position, facingPos)
+    assert(emulator ~= nil, "Emulator was not given")
+    local turtle = {
+        ---@type Vector
+        position = position or vector.new(0, 0, 0),
+        ---@type Vector
+        facing = facingPos or vector.new(1, 0, 0),
+        ---@type number
+        fuelLevel = 0,
+        ---@type boolean
+        canPrint = false,
+        ---@type inventory
+        inventory = turtleInventory(16),
+        ---@type integer
+        selectedSlot = 1,
+        ---@type integer
+        fuelLimit = 100000,
+        equipslots = {},
+        emulator = emulator,
+        id = id,
+        item = { name = "computercraft:turtle_normal" },
+        checkActionValid = {["dig"] = function (equipslots, action, block)
+            if equipslots.left and equipslots.left.name == "minecraft:pickaxe" then
+                return true
+            end
+            if equipslots.right and equipslots.right.name == "minecraft:pickaxe" then
+                return true
+            end
+            return false
+        end},
+        onInteration = defaultInteraction,
+    }
+    setmetatable(turtle, { __index = turtleMock })
 
+    local proxy = {}
+    local mt = {}
+    mt.__index = function(_, key)
+        local value = turtle[key]
+        if type(value) == "function" then
+            return function(...)
+                if value == turtle.onInteration then
+                    return value(...)
+                end
+                local mightBeSelf = select(1, ...)
+                if mightBeSelf == turtle then
+                    return value(...)
+                elseif mightBeSelf == proxy then
+                ---@diagnostic disable-next-line: missing-parameter
+                    return value(turtle, select(2, ...))
+                end
+                return value(turtle, ...)
+            end
+        end
+        return value
+    end
+    mt.__newindex = function(_, key, value)
+        turtle[key] = value
+    end
+    mt.__metatable = mt
+
+    setmetatable(proxy, mt)
+    proxy.peripheralModule = peripheral:linkToTurtle(proxy)
+    return proxy
+end
 
 ---@param self TurtleProxy | TurtleMock
 ---@param act boolean | nil
@@ -401,8 +467,8 @@ function turtleMock.createMock(emulator, id, suits, position, facingPos)
         fuelLevel = 0,
         ---@type boolean
         canPrint = false,
-        ---@type inventory
-        inventory = inventory:createInventory(16),
+        ---@type TurtleInventory
+        inventory = turtleInventory(16),
         ---@type integer
         selectedSlot = 1,
         ---@type integer
@@ -714,5 +780,12 @@ function turtleMock:print(...)
         print(...)
     end
 end
+
+local mt = {}
+mt.__call = function(_, emulator, id, position, facingPos)
+    return createTurtleMock(_, emulator, id, position, facingPos)
+end
+setmetatable(turtleMock, mt)
+
 
 return turtleMock

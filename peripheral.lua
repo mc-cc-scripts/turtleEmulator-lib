@@ -128,7 +128,6 @@ function peripheralModule:find(typeName, filterFunc)
     for _, position in pairs(positions) do
         local block = position
         if block and block.peripheralName and block.peripheralName == typeName then
-            print("Position: ", block.position)
             peripheral = self.turtle.emulator:playPeripheralProxy(block.position)
             if peripheral and ((not filterFunc) or filterFunc(block.item.name, peripheral)) then
                 return peripheral
@@ -141,15 +140,17 @@ end
 ---@param name any
 ---@return string[] | nil
 function peripheralModule:getMethods(name)
-    local p = self:find(name)
-    if not p then return nil end
-    local methods = {}
-    for k, v in pairs(p) do
-        if type(v) == "function" then
-            table.insert(methods, k)
-        end
+    local inventoryMethods = {
+        "list",
+        "getItemDetail",
+        "size",
+        "pushItems",
+        "pullItems",
+        "getItemLimit"
+    }
+    if name == "inventory" then
+        return inventoryMethods
     end
-    return methods
 end
 
 ---@return string[]

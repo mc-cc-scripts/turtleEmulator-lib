@@ -35,7 +35,7 @@
 local turtleM = require("./turtleMock")
 local defaultInteration = require("../defaultInteraction")
 local defaultcheckActionValid = require("./defaultcheckActionValid")
-local inventory = require("./inventory")
+local chestInventory = require("./inventory/chestInventory")
 ---@type Vector
 local vector = require("./TestSuite-lib/vector/vector")
 
@@ -56,13 +56,11 @@ local turtleEmulator = {
     createTurtle = function(self)
         assert(vector, "No Vector-Lib found")
         ---@type TurtleProxy
-        local t = turtleM.createMock(self, self.turtleID, self.suit, vector.new(0,0,0), vector.new(1, 0, 0))
+        local t =  turtleM(self, self.turtleID, vector.new(0,0,0), vector.new(1, 0, 0))
         self.turtles[self.turtleID] = t
         self.turtleID = self.turtleID + 1
         return t
     end,
-    ---@type Suits
-    suit = {}
 }
 
 --- Converts a vector to a point with the format "x,y,z"
@@ -133,14 +131,14 @@ function turtleEmulator:clearBlocks()
 end
 
 --- Adds an inventory to the block at the given position
----@param position position
----@return peripheralActions | nil
+---@param position Vector
+---@return ChestInventory | nil
 function turtleEmulator:addInventoryToBlock(position)
     local block = self:getBlock(position)
     if block == nil then
         return
     end
-    block.peripheralActions = inventory:createInventory(nil)
+    block.peripheralActions = chestInventory()
     block.peripheralName = "inventory"
     return self:playPeripheralProxy(position)
 end
