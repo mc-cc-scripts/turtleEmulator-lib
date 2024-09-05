@@ -29,10 +29,17 @@
 ---@field equal function
 assert = assert
 
--- load the other suits
-local vector = require("./TestSuite-lib/vector/vector")
+local spath =
+    debug.getinfo(1,'S').source:sub(2):gsub("/+", "/"):gsub("[^/]*$",""):gsub("/tests", ""):gsub("tests", "")
+    if spath == "" then
+        spath = "./"
+    end
+require(spath .. "package")
 
-local turtleEmulator = require("../turtleEmulator")
+-- load the other suits
+local vector = require("vector")
+
+local turtleEmulator = require("turtleEmulator")
 describe("Disabled Movement", function()
     local turtle
     setup(function()

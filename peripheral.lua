@@ -41,7 +41,7 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 --#endregion
 
 ---@type Vector
-local vector = require("./TestSuite-lib/vector/vector")
+local vector = require("vector")
 
 local relativePositionOptions = {
     ["right"] = true,

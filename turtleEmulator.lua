@@ -32,12 +32,12 @@
 --#endregion
 
 ---@type TurtleMock
-local turtleM = require("./turtleMock")
-local defaultInteration = require("../defaultInteraction")
-local defaultcheckActionValid = require("./defaultcheckActionValid")
-local chestInventory = require("./inventory/chestInventory")
+local turtleM = require("turtleMock")
+local defaultInteration = require("defaultInteraction")
+local defaultcheckActionValid = require("defaultcheckActionValid")
+local chestInventory = require("chestInventory")
 ---@type Vector
-local vector = require("./TestSuite-lib/vector/vector")
+local vector = require("vector")
 
 ---comment
 ---@param position Vector
