@@ -3,5 +3,4 @@ local spath =
 package.path = spath.."?.lua;"
     ..spath.."inventory/?.lua;"
     ..package.path
-
-require(spath.."TestSuite-lib/package")
+require(spath.."TestSuite-lib/ccPackage")

@@ -31,10 +31,11 @@ assert = assert
 
 local spath =
     debug.getinfo(1,'S').source:sub(2):gsub("/+", "/"):gsub("[^/]*$",""):gsub("/tests", ""):gsub("tests", "")
-    if spath == "" then
-        spath = "./"
-    end
-require(spath .. "package")
+if spath == "" then
+    spath = "./"
+end
+local package = spath.."ccPackage"
+require(package)
 
 -- load the other suits
 local vector = require("vector")
