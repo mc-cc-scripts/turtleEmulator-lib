@@ -8,7 +8,7 @@
 
 ---@alias left string
 ---@alias right string
----@alias equipslots {left: item, right: item}
+---@alias equipslots {left: Item, right: Item}
 
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
@@ -33,7 +33,7 @@
 ---@field getSelectedSlot fun():integer
 ---@field getItemCount fun(slot: integer):integer
 ---@field getItemSpace fun(slot: integer):integer
----@field getItemDetail fun(slot: integer | nil):item | nil
+---@field getItemDetail fun(slot: integer | nil):Item | nil
 ---@field compareTo fun(slot: integer):boolean
 ---@field transferTo fun(slot: integer, count: integer):boolean, string | nil
 ---@field select fun(slot: integer):boolean
@@ -62,7 +62,7 @@
 ---@field drop fun(count: integer):boolean
 ---@field print fun(...: any):nil only exists for testing purposes
 ---@field getPeripheralModule fun():PeripheralModule only exists for testing purposes
----@field addItemToInventory fun(item: item, slot: number | nil):boolean only exists for testing purposes
+---@field addItemToInventory fun(item: Item, slot: number | nil):boolean only exists for testing purposes
 ---@field removeItem fun(turtle: TurtleMock, slot: integer, count: integer):boolean only exists for testing purposes
 
 ---@class TurtleProxy : TurtleMock
@@ -157,7 +157,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function forward(self, act)
     if act == nil then
         act = true
@@ -183,7 +183,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function back(self, act)
     if act == nil then
         act = true
@@ -206,7 +206,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function up(self, act)
     if act == nil then
         act = true
@@ -230,7 +230,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function down(self, act)
     if act == nil then
         act = true
@@ -377,7 +377,7 @@ local function detect(block)
 end
 
 ---@param block block | nil
----@param compareItem item | nil
+---@param compareItem Item | nil
 ---@return boolean
 local function compareBlock(block, compareItem)
     if block == nil and compareItem == nil then
@@ -580,7 +580,7 @@ end
 
 --- gets the item in the selected slot or the specified slot
 ---@param slot integer | nil the slot to get the item-details from
----@return item | nil item the item in the slot
+---@return Item | nil item the item in the slot
 function turtleMock:getItemDetail(slot)
     return self.inventory:getItemDetail(slot)
 end
@@ -619,7 +619,7 @@ end
 
 --- for Testing purposes:
 --- adds an item to the inventory
----@param item item
+---@param item Item
 ---@param slot number | nil
 function turtleMock:addItemToInventory(item, slot)
     return self.inventory:addItemToInventory(item, slot)

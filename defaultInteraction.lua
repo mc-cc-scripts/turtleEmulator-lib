@@ -1,4 +1,4 @@
----@type item
+---@type Item
 local turtleItem = {name = "computercraft:turtle_normal", count = 1, maxcount = 64}
 
 ---@type onInteration

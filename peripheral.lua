@@ -30,7 +30,8 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 
 
 ---@class PeripheralModule
----@field turtle TurtleMock
+---@field type string
+---@field computer TurtleMock
 ---@field linkToTurtle fun(peripheral: PeripheralModule, turtle: TurtleMock):PeripheralModule
 ---@field find fun(peripheral: PeripheralModule, typeName: string, filterFunc: filterFunc | nil):table | nil
 ---@field getMethods fun(peripheral: PeripheralModule, name: any):string[] | nil
@@ -52,27 +53,39 @@ local relativePositionOptions = {
     ["bottom"] = true
 }
 --- Maps the relative positions of the turtle to the absolute positions of the emulator
----@param turtle TurtleMock
+---@param computer TurtleMock
 ---@return table<relativePosition, Vector>
-local function positionMapper(turtle)
+local function positionMapper(computer)
     return {
-        ["front"] = turtle.position + turtle.facing,
-        ["back"] = turtle.position - turtle.facing,
-        ["left"] = turtle.position - turtle.facing:cross(vector.new(0, 1, 0)),
-        ["right"] = turtle.position + turtle.facing:cross(vector.new(0, 1, 0)),
-        ["top"] = turtle.position + vector.new(0, 1, 0),
-        ["bottom"] = turtle.position + vector.new(0, -1, 0),
+        ["front"] = computer.position + computer.facing,
+        ["back"] = computer.position - computer.facing,
+        ["left"] = computer.position - computer.facing:cross(vector.new(0, 1, 0)),
+        ["right"] = computer.position + computer.facing:cross(vector.new(0, 1, 0)),
+        ["top"] = computer.position + vector.new(0, 1, 0),
+        ["bottom"] = computer.position + vector.new(0, -1, 0),
     }
 end
 
----@param turtle TurtleMock
----@return table<number, block>
-local function getNearbyPeripheralBlocks(turtle)
+---@param pModule PeripheralModule
+---@return table<number, Item>
+local function getNearbyPeripheralItems(pModule)
     local positions = {}
-    for _, position in pairs(positionMapper(turtle)) do
-        local block = turtle.emulator:getBlock(position)
-        if block and block.peripheralActions then
-            table.insert(positions, block)
+    for direction, position in pairs(positionMapper(pModule.computer)) do
+        local block = pModule.computer.emulator:getBlock(position)
+        if block and block.item.peripheralActions then
+            positions[direction] = block.item
+        end
+    end
+    if pModule.type == "turtle" then
+        positions["left"] = nil
+        positions["right"] = nil
+        positions["back"] = nil
+
+        if pModule.computer.equipslots["left"] and pModule.computer.equipslots["left"].peripheralName ~= nil then
+            positions["left"] = pModule.computer.equipslots["left"]
+        end
+        if pModule.computer.equipslots["right"] and pModule.computer.equipslots["right"].peripheralName ~= nil then
+            positions["left"] = pModule.computer.equipslots["right"]
         end
     end
     return positions
@@ -87,7 +100,7 @@ local peripheralModule = {}
 function peripheralModule:linkToTurtle(turtle)
     assert(turtle, "Parameters: 1. self and 2. 'turtle' which must be of type TurtleMock")
     local _peripheralModule = {
-        turtle = turtle,
+        computer = turtle,
     }
     setmetatable(_peripheralModule, {__index = peripheralModule})
     local mt = {}
@@ -113,6 +126,7 @@ function peripheralModule:linkToTurtle(turtle)
     end
     
     setmetatable(proxy, mt)
+    proxy.type = "turtle"
     return proxy
     
 end
@@ -122,14 +136,14 @@ end
 ---@param filterFunc filterFunc | nil
 ---@return table | nil
 function peripheralModule:find(typeName, filterFunc)
-    assert(self.turtle, "Peripheral is not linked to a turtle")
-    local positions = getNearbyPeripheralBlocks(self.turtle)
+    assert(self.computer, "Peripheral is not linked to a turtle")
+    local positionOfItems = getNearbyPeripheralItems(self)
     local peripheral
-    for _, position in pairs(positions) do
-        local block = position
-        if block and block.peripheralName and block.peripheralName == typeName then
-            peripheral = self.turtle.emulator:playPeripheralProxy(block.position)
-            if peripheral and ((not filterFunc) or filterFunc(block.item.name, peripheral)) then
+    for _, item in pairs(positionOfItems) do
+        if item and item.peripheralName and item.peripheralName == typeName then
+            
+            peripheral = self.computer.emulator:playPeripheralProxy(item)
+            if peripheral and ((not filterFunc) or filterFunc(item.name, peripheral)) then
                 return peripheral
             end
         end
@@ -156,11 +170,11 @@ end
 ---@return string[]
 function peripheralModule:getNames()
     local names = {}
-    local blocks = getNearbyPeripheralBlocks(self.turtle)
-    for _, block in ipairs(blocks) do
-        if block and block.peripheralName then
-            if block.peripheralActions then
-                table.insert(names, block.item.name)
+    local positionOfItems = getNearbyPeripheralItems(self)
+    for _, item in ipairs(positionOfItems) do
+        if item and item.peripheralName then
+            if item.peripheralActions then
+                table.insert(names, item.name)
             end
         end
     end
@@ -173,12 +187,11 @@ end
 function peripheralModule:isPresent(positionOrname)
     assert(type(positionOrname) == "string", "Parameter: 'positionOrname' must be a string")
     if relativePositionOptions[positionOrname] ~= nil then
-        local position = positionMapper(self.turtle)[positionOrname]
-        local block = self.turtle.emulator:getBlock(position)
-        return (block ~= nil) and (block.peripheralActions ~= nil)
+        local positionOfItems = getNearbyPeripheralItems(self)
+        return positionOfItems[positionOrname] ~= nil
     else
-        local peripheral = self:find(positionOrname)
-        return peripheral ~= nil
+    local peripheral = self:find(positionOrname)
+    return peripheral ~= nil
     end
 end
 

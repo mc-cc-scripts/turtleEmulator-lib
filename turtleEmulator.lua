@@ -1,7 +1,7 @@
 --#region Definitions
 
 ---@alias peripheralActions
----| inventory
+---| Inventory
 
 ---@alias toolName string
 ---@alias checkActionName string
@@ -10,13 +10,12 @@
 ---@alias onInteration fun(turtle: TurtleProxy, block: block | TurtleProxy, action: string): nil
 
 ---@class block
----@field item item
+---@field item Item
 ---@field checkActionValid checkActionValid | nil
 ---@field position Vector | nil
 ---@field onInteration onInteration | nil
 ---@field state table<string, any> | nil
----@field peripheralActions peripheralActions | nil
----@field peripheralName string | nil
+
 
 --- used from the Scanner, as the blocks will most likely be scanned, saved and then inserted into the turtleEmulator for testing
 ---@class ScanData
@@ -41,7 +40,7 @@ local vector = require("vector")
 
 ---comment
 ---@param position Vector
----@param item item
+---@param item Item
 local function itemFallsDown(position, item)
     --TODO: implement ItemBehavior
 end
@@ -131,75 +130,80 @@ function turtleEmulator:clearBlocks()
 end
 
 --- Adds an inventory to the block at the given position
----@param position Vector
+---@param item Item
 ---@return ChestInventory | nil
-function turtleEmulator:addInventoryToBlock(position)
-    local block = self:getBlock(position)
-    if block == nil then
+function turtleEmulator:addInventoryToItem(item)
+    if item == nil then
         return
     end
-    block.peripheralActions = chestInventory()
-    block.peripheralName = "inventory"
-    return self:playPeripheralProxy(position)
+    if item.peripheralActions ~= nil then
+        return item.peripheralActions
+    end
+    item.peripheralActions = chestInventory()
+    item.peripheralName = "inventory"
+    local proxy = self:playPeripheralProxy(item)
+    ---@cast proxy ChestInventory
+    return proxy
 end
 
 --- The Emulator needs to play Proxy for the peripheral
 --- to set the self reference in all the peripheral - calls
----@param position any
+---@param item Item
 ---@return peripheralActions | nil
-function turtleEmulator:playPeripheralProxy(position)
-    local block = self:getBlock(position)
-    assert(block, "No block at position")
-    local blockAction = block.peripheralActions
-    if blockAction == nil then
-        return nil
+function turtleEmulator:playPeripheralProxy(item)
+    local action = item.peripheralActions
+    if action == nil then
+        error("No peripheralActions found")
+    end
+    if item.peripheralProxy then
+        return item.peripheralProxy
     end
     local proxy = {}
     local mt = {}
     mt.__index = function (_, key)
-        local value = blockAction[key]
+        local value = action[key]
+        if value == nil then
+            error("no field found for key: " .. item.peripheralName .. "." .. key)
+        end
         if type(value) == "function" then
             return function(...)
                 local mightBeSelf = select(1, ...)
-                if mightBeSelf == blockAction then
+                if mightBeSelf == action then
                     return value(...)
                 elseif mightBeSelf == proxy then
                 ---@diagnostic disable-next-line: missing-parameter
-                    return value(blockAction, select(2, ...))
+                    return value(action, select(2, ...))
                 end
-                return value(blockAction, ...)
+                return value(action, ...)
             end
         end
+        error("return base evaule because of type: " .. type(value))
         return value
     end
     mt.__newindex = function (_, key, value)
-        blockAction[key] = value
+        action[key] = value
     end   
     setmetatable(proxy, mt)
-    proxy.block = block
+
+    item.peripheralProxy = proxy
     return proxy
 end
 
 ---@param position Vector
----@param item item
+---@param item Item
 ---@return boolean Success
+---@return string | nil Error
 function turtleEmulator:turtleDrop(position, item)
     local block = self:getBlock(position)
     -- if there is no block at the position, the item will fall down (currently voided)
-    if block == nil then
-        itemFallsDown(position, item)
-        return true
-    end
+    if block and block.item and block.item.peripheralActions then
+        if block.item.peripheralName == "inventory" then
+            return block.item.peripheralActions:addItemToInventory(item)
+        end
     -- if there is a block, but no peripheralActions, the item will fall down (somewhere, currently voided)
-    if block.peripheralActions == nil then
-        itemFallsDown(position, item)
-        return true
     end
-
-    if block.peripheralName == "inventory" then
-        return block.peripheralActions:addItemToInventory(item)
-    end
-
+    itemFallsDown(position, item)
+    return true
 end
 ---set vector-lib for the turtleEmulator
 return turtleEmulator
