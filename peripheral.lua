@@ -38,6 +38,7 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 ---@field getNames fun(peripheral: PeripheralModule):string[]
 ---@field isPresent fun(peripheral: PeripheralModule, positionOrname: any):boolean
 ---@field getType fun(peripheral: PeripheralModule, Peripheral: peripheralActions):string|nil
+---@field wrap fun(peripheral: PeripheralModule, positionOrname: any):peripheralActions | nil
 ---@field __index PeripheralModule
 --#endregion
 
@@ -182,19 +183,30 @@ function peripheralModule:getNames()
 end
 
 --- Checks if a peripheral is present at the given position or with a given name
----@param positionOrname any
+---@param position string
 ---@return boolean
-function peripheralModule:isPresent(positionOrname)
-    assert(type(positionOrname) == "string", "Parameter: 'positionOrname' must be a string")
-    if relativePositionOptions[positionOrname] ~= nil then
+function peripheralModule:isPresent(position)
+    assert(type(position) == "string", "Parameter: 'positionOrname' must be a string")
+    if relativePositionOptions[position] ~= nil then
         local positionOfItems = getNearbyPeripheralItems(self)
-        return positionOfItems[positionOrname] ~= nil
-    else
-    local peripheral = self:find(positionOrname)
-    return peripheral ~= nil
+        return positionOfItems[position] ~= nil
     end
+    return false
 end
 
+---@param position string
+---@return peripheralActions | nil
+function peripheralModule:wrap(position)
+    assert(type(position) == "string", "Parameter: 'positionOrname' must be a string")
+    if relativePositionOptions[position] ~= nil then
+        local positionOfItems = getNearbyPeripheralItems(self)
+        if positionOfItems[position] ~= nil then
+            local peripheral = self.computer.emulator:playPeripheralProxy(positionOfItems[position])
+            return peripheral
+        end
+    end
+    return nil
+end
 
 ---Gets the type of the peripheral at the given position
 ---@param peripheralActions peripheralActions
