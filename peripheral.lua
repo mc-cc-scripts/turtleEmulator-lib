@@ -27,7 +27,8 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 --- | "left"
 --- | "right"
 
-
+---@class PeripheralActions
+---@field getType fun():string
 
 ---@class PeripheralModule
 ---@field type string
@@ -37,8 +38,8 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 ---@field getMethods fun(peripheral: PeripheralModule, name: any):string[] | nil
 ---@field getNames fun(peripheral: PeripheralModule):string[]
 ---@field isPresent fun(peripheral: PeripheralModule, positionOrname: any):boolean
----@field getType fun(peripheral: PeripheralModule, Peripheral: peripheralActions):string|nil
----@field wrap fun(peripheral: PeripheralModule, positionOrname: any):peripheralActions | nil
+---@field getType fun(peripheral: PeripheralModule, Peripheral: PeripheralActions):string|nil
+---@field wrap fun(peripheral: PeripheralModule, positionOrname: any):PeripheralActions | nil
 ---@field __index PeripheralModule
 --#endregion
 
@@ -81,7 +82,6 @@ local function getNearbyPeripheralItems(pModule)
         positions["left"] = nil
         positions["right"] = nil
         positions["back"] = nil
-
         if pModule.computer.equipslots["left"] and pModule.computer.equipslots["left"].peripheralName ~= nil then
             positions["left"] = pModule.computer.equipslots["left"]
         end
@@ -195,7 +195,7 @@ function peripheralModule:isPresent(position)
 end
 
 ---@param position string
----@return peripheralActions | nil
+---@return PeripheralActions | nil
 function peripheralModule:wrap(position)
     assert(type(position) == "string", "Parameter: 'positionOrname' must be a string")
     if relativePositionOptions[position] ~= nil then
@@ -209,7 +209,7 @@ function peripheralModule:wrap(position)
 end
 
 ---Gets the type of the peripheral at the given position
----@param peripheralActions peripheralActions
+---@param peripheralActions PeripheralActions
 ---@return string|nil
 function peripheralModule:getType(peripheralActions)
     return peripheralActions:getType();

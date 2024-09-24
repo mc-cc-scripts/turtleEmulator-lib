@@ -1,9 +1,9 @@
 -- This is the default checkActionValid function
 ---@type checkActionValidFunc
-local defaultcheckActionValid = function(equipslots, action, block)
+local defaultcheckActionValid = function(turtle, action, block)
     -- example use cases:
     --
-    -- if equipslots.left and equipslots.left.name == "" then end
+    -- if turtle.equipslots.left and turtle.equipslots.left.name == "" then end
     -- if action == "dig" then end
     -- if block.item.name == "" then end
 

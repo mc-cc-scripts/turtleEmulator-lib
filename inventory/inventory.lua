@@ -13,9 +13,9 @@
 ---@field wildcardInfo any | nil
 ---@field count integer | nil
 ---@field tags table<string, any> | nil
----@field peripheralActions peripheralActions | nil
+---@field peripheralActions PeripheralActions | nil
 ---@field peripheralName string | nil
----@field peripheralProxy peripheralActions | nil
+---@field peripheralProxy PeripheralActions | nil
 
 
 --#endregion
@@ -26,7 +26,7 @@ local class = require("ccClass")
 
 ---# inventory
 ---Inventory system emulated
----@class Inventory
+---@class Inventory : PeripheralActions
 ---@field inventorySize number
 ---@field defaultMaxSlotSize number
 ---@field protected init function

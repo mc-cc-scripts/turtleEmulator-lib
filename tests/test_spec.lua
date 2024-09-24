@@ -39,6 +39,8 @@ require(package)
 
 -- load the other suits
 local vector = require("vector")
+local geoScanner = require("geoScanner")
+local chestInventory = require("chestInventory")
 
 local turtleEmulator = require("turtleEmulator")
 describe("Disabled Movement", function()
@@ -532,13 +534,13 @@ describe("ActionAccepted", function()
     local toolsStone = "minecraft:pickaxe"
     local toolsWood = { "minecraft:pickaxe", "minecraft:axe" }
     ---@type checkActionValid
-    local toolsWheed = function(equipslots, action, blockRef)
-        local tool1 = equipslots.left and equipslots.left.name or nil
-        local tool2 = equipslots.right and equipslots.right.name or nil
+    local toolsWheed = function(turtle, action, blockRef)
+        local tool1 = turtle.equipslots.left and turtle.equipslots.left.name or nil
+        local tool2 = turtle.equipslots.right and turtle.equipslots.right.name or nil
         return (tool1 == "minecraft:hoe" or tool2 == "minecraft:hoe") and action == "dig"
     end;
 
-    ---@type onInteration
+    ---@type onInteraction
     local dirtInteraction = function(turtle, block, action)
         if block.item.name == "minecraft:dirt" and action == "dig" then
             block.item.name = "minecraft:farmland"
@@ -555,7 +557,7 @@ describe("ActionAccepted", function()
             item = { name = "minecraft:dirt" },
             position = vector.new(0, -1, 0),
             checkActionValid = { ["dig"] = toolsWheed },
-            onInteration =
+            onInteraction =
                 dirtInteraction
         })
         turtleEmulator:createBlock({ item = { name = "minecraft:cobblestone" }, position = vector.new(0, -1, 3), checkActionValid = { ["dig"] = {} } })
@@ -857,7 +859,7 @@ describe("peripherals", function()
         turtle.position = vector.new(5, 0, 5 )
         turtle.facing = vector.new(1, 0, 0)
         local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(6, 0, 5 ) })
-        local chest = turtleEmulator:addInventoryToItem(block.item)
+        local chest = turtleEmulator:addPeripheralToItem(block.item, chestInventory)
         chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
         ---@type ChestInventory | nil
         local chestPeripheral = peripheral.find("inventory")
@@ -904,5 +906,39 @@ describe("peripherals", function()
         assert.are.equal("inventory", testItem.getType())
         testItem.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
         assert.are.equal(64, testItem.getItemCount(1))
+    end)
+    describe("Scanner", function()
+        before_each(function()
+            turtle.addItemToInventory({ name = "advancedperipherals:geoscanner", count = 1, maxcount = 1, equipable = true}, 1)
+            turtleEmulator:addPeripheralToItem(turtle.inventory[1], geoScanner, turtle)
+            assert.is_true(turtle.equipLeft())
+        end)
+        it("Wrap", function()
+            assert.is_true(peripheral.isPresent("left"))
+            local scanner = peripheral.wrap("left")
+            assert.is_true(scanner ~= nil)
+            ---@cast scanner GeoScanner
+            assert.are.equal("geoScanner", scanner.getType())
+            scanner.scanResult = { { name = "minecraft:stone", count = 64, tags = {} } }
+            local result = scanner.scan(20)
+            assert.are.equal("minecraft:stone", result[1].name)
+        end)
+        it("Emulate", function() 
+            local scanner = peripheral.find("geoScanner")
+            assert.is_true(scanner ~= nil)
+            ---@cast scanner GeoScanner
+            local fakeData = {
+                {y = 0,x = 0,name = "minecraft:deepslate_iron_ore",z = -2,},
+                {y = 0,x = 0,name = "computercraft:turtle_advanced",z = 0},
+                {y = 2,x = 0,name = "enderchests:ender_chest",z = -2,}
+            }
+            scanner.scanEmulator = true
+            ---@cast fakeData ScanDataTable
+            turtleEmulator:readBlocks(fakeData)
+            local scanData = scanner.scan(3)
+            assert.are.equal("minecraft:deepslate_iron_ore", scanData[1].name)
+            assert.are.equal("computercraft:turtle_advanced", scanData[2].name)
+            assert.are.equal("enderchests:ender_chest", scanData[3].name)
+        end)
     end)
 end)

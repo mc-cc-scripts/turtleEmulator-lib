@@ -23,7 +23,6 @@
 ---@field emulator TurtleEmulator | nil
 ---@field id number | nil
 ---@field peripheralModule PeripheralModule
----@field createMock fun(emulator: TurtleEmulator, id: number, suits: Suits, position: Vector, facingPos: Vector):TurtleProxy
 ---@field forward fun(act: boolean | nil):boolean, string | nil, position
 ---@field back fun(act: boolean | nil):boolean, string | nil, position
 ---@field up fun(act: boolean | nil):boolean, string | nil, position
@@ -109,16 +108,16 @@ local function createTurtleMock(_, emulator, id, position, facingPos)
         emulator = emulator,
         id = id,
         item = { name = "computercraft:turtle_normal" },
-        checkActionValid = {["dig"] = function (equipslots, action, block)
-            if equipslots.left and equipslots.left.name == "minecraft:pickaxe" then
+        checkActionValid = {["dig"] = function (turtle, action, block)
+            if turtle.equipslots.left and turtle.equipslots.left.name == "minecraft:pickaxe" then
                 return true
             end
-            if equipslots.right and equipslots.right.name == "minecraft:pickaxe" then
+            if turtle.equipslots.right and turtle.equipslots.right.name == "minecraft:pickaxe" then
                 return true
             end
             return false
         end},
-        onInteration = defaultInteraction,
+        onInteraction = defaultInteraction,
     }
     setmetatable(turtle, { __index = turtleMock })
 
@@ -128,7 +127,7 @@ local function createTurtleMock(_, emulator, id, position, facingPos)
         local value = turtle[key]
         if type(value) == "function" then
             return function(...)
-                if value == turtle.onInteration then
+                if value == turtle.onInteraction then
                     return value(...)
                 end
                 local mightBeSelf = select(1, ...)
@@ -308,11 +307,11 @@ local function canDoAction(turtle, block, action)
     assert(block.checkActionValid, text)
         -- check typeof function
     if type(block.checkActionValid) == "function" then
-        return block.checkActionValid(turtle.equipslots, action, block)
+        return block.checkActionValid(turtle, action, block)
     end
     assert(block.checkActionValid[action] ~= nil, text)
     if type(block.checkActionValid[action]) == "function" then
-        return block.checkActionValid[action](turtle.equipslots, action, block)
+        return block.checkActionValid[action](turtle, action, block)
     end
         
     if turtle.equipslots == nil then
@@ -345,7 +344,7 @@ local function canDoAction(turtle, block, action)
                 end
             end
             if type(requiredTool) == "function" then
-                return requiredTool(turtle.equipslots, action, block)
+                return requiredTool(turtle, action, block)
             end
         end
         return allTools
@@ -366,7 +365,10 @@ local function dig(turtle, block)
         return false, "Cannot beak block with this tool"
     end
     ---@cast turtle TurtleProxy
-    block.onInteration(turtle, block, "dig")
+    if(not block.onInteraction) then
+        error(block.item)
+    end
+    block.onInteraction(turtle, block, "dig")
     return true, "Cannot beak block with this tool"
 end
 
@@ -449,77 +451,6 @@ local function drop(turtle, position, count)
         return turtle.inventory:removeItem(turtle.inventory.selectedSlot, count)
     end
     return false
-end
-
----@param emulator TurtleEmulator
----@param id number
----@param suits table<string, any>
----@param position Vector
----@param facingPos Vector
----@return TurtleProxy
-function turtleMock.createMock(emulator, id, suits, position, facingPos)
-    local turtle = {
-        ---@type position
-        position = position or vector.new(0, 0, 0),
-        ---@type Vector
-        facing = facingPos or vector.new(1, 0, 0),
-        ---@type number
-        fuelLevel = 0,
-        ---@type boolean
-        canPrint = false,
-        ---@type TurtleInventory
-        inventory = turtleInventory(16),
-        ---@type integer
-        selectedSlot = 1,
-        ---@type integer
-        fuelLimit = 100000,
-        equipslots = {},
-        emulator = emulator,
-        id = id,
-        item = { name = "computercraft:turtle_normal" },
-        checkActionValid = {["dig"] = function (equipslots, action, block)
-            if equipslots.left and equipslots.left.name == "minecraft:pickaxe" then
-                return true
-            end
-            if equipslots.right and equipslots.right.name == "minecraft:pickaxe" then
-                return true
-            end
-            return false
-        end},
-        onInteration = defaultInteraction,
-        suits = suits
-    }
-    setmetatable(turtle, { __index = turtleMock })
-
-    local proxy = {}
-    local mt = {}
-    mt.__index = function(_, key)
-        local value = turtle[key]
-        if type(value) == "function" then
-            return function(...)
-                if value == turtle.onInteration then
-                    return value(...)
-                end
-                local mightBeSelf = select(1, ...)
-                if mightBeSelf == turtle then
-                    return value(...)
-                elseif mightBeSelf == proxy then
-                ---@diagnostic disable-next-line: missing-parameter
-                    return value(turtle, select(2, ...))
-                end
-                return value(turtle, ...)
-            end
-        end
-        return value
-    end
-    mt.__newindex = function(_, key, value)
-        turtle[key] = value
-    end
-    mt.__metatable = mt
-
-    setmetatable(proxy, mt)
-    proxy.peripheralModule = peripheral:linkToTurtle(proxy)
-    return proxy
 end
 
 function turtleMock:getPeripheralModule()

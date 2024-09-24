@@ -1,7 +1,7 @@
 ---@type Item
 local turtleItem = {name = "computercraft:turtle_normal", count = 1, maxcount = 64}
 
----@type onInteration
+---@type onInteraction
 local function defaultInteration(turtle, block, action)
     assert(turtle, "Turtle is nil")
     assert(turtle.emulator, "Turtle has no reference to the emulator")
