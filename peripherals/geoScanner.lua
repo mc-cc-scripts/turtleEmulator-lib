@@ -21,6 +21,7 @@ function geoScanner:scan(radius)
         return self.scanResult
     end
     local result = {}
+    assert(self.turtle, "No turtle found, needs to be provided in the constructor via playPeripheralProxy as the third parameter")
     local e = self.turtle.emulator
     assert(e, "No emulator found")
     for positionString, block in pairs(e.blocks) do

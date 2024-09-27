@@ -572,7 +572,6 @@ end
 ---@return string | nil
 function turtleMock:refuel(count)
     count = count or 1
-    assert(count > 0, "Count must be greater than 0")
     local item = self.inventory[self.inventory.selectedSlot]
     if item == nil or count > item.count then
         return false, "TODO"
