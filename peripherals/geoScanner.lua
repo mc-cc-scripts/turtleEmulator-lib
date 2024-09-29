@@ -2,14 +2,14 @@
 local class = require("ccClass")
 ---@class GeoScanner : PeripheralActions
 local geoScanner = class(function (a, turtle, scanResult)
-    a.turtle = turtle
+    a.computer = turtle
     a.scanResult = scanResult or {}
 end)
 
 ---@type ScanDataTable
 geoScanner.scanResult = nil
 ---@type TurtleMock | nil
-geoScanner.turtle = nil
+geoScanner.computer = nil
 geoScanner.scanEmulator = false
 
 ---comment
@@ -21,13 +21,13 @@ function geoScanner:scan(radius)
         return self.scanResult
     end
     local result = {}
-    assert(self.turtle, "No turtle found, needs to be provided in the constructor via playPeripheralProxy as the third parameter")
-    local e = self.turtle.emulator
+    assert(self.computer, "No turtle found, needs to be provided in the constructor via playPeripheralProxy as the third parameter")
+    local e = self.computer.emulator
     assert(e, "No emulator found")
     for positionString, block in pairs(e.blocks) do
         --- check if the block is in the radius x of the turtle
-        local length = (block.position - self.turtle.position).length
-        if (block.position - self.turtle.position):length() <= radius then
+        local length = (block.position - self.computer.position).length
+        if (block.position - self.computer.position):length() <= radius then
             table.insert(result, {name = block.item.name
                 ,x = block.position.x
                 ,y = block.position.y
@@ -37,8 +37,8 @@ function geoScanner:scan(radius)
         end
     end    
     for id, turtle in ipairs(e.turtles) do
-        if turtle.id ~= self.turtle.id then
-            local length = (turtle.position - self.turtle.position).length
+        if turtle.id ~= self.computer.id then
+            local length = (turtle.position - self.computer.position).length
             if length <= radius then
                 table.insert(result, {name = "computercraft:turtle_advanced"
                     ,x = turtle.position.x

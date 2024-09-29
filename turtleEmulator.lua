@@ -187,6 +187,17 @@ function turtleEmulator:playPeripheralProxy(item)
         if value == nil then
             error("no field found for key: " .. item.peripheralName .. "." .. key)
         end
+        local callerInfo = debug.getinfo(2, "f")
+        if not (callerInfo and callerInfo.func == action and key ~= "accessValid") then
+            local valid = action.accessValid
+            if valid and not valid(action, key, item) then 
+                if type(value) == "function" then
+                    return function() end
+                end
+                return nil
+            end
+        end
+        -- error("passed")
         if type(value) == "function" then
             return function(...)
                 local mightBeSelf = select(1, ...)
@@ -226,5 +237,7 @@ function turtleEmulator:turtleDrop(position, item)
     itemFallsDown(position, item)
     return true
 end
+
+
 ---set vector-lib for the turtleEmulator
 return turtleEmulator

@@ -29,6 +29,8 @@ to simulate the normal behavior of a turtle interacting with a peripheral.
 
 ---@class PeripheralActions
 ---@field getType fun():string
+---@field accessValid nil | fun(self: PeripheralActions, key: string, item: Item):boolean, string
+---@field isWrapped boolean | nil
 
 ---@class PeripheralModule
 ---@field type string
@@ -145,6 +147,7 @@ function peripheralModule:find(typeName, filterFunc)
             
             peripheral = self.computer.emulator:playPeripheralProxy(item)
             if peripheral and ((not filterFunc) or filterFunc(item.name, peripheral)) then
+                peripheral.isWrapped = true
                 return peripheral
             end
         end
@@ -202,6 +205,7 @@ function peripheralModule:wrap(position)
         local positionOfItems = getNearbyPeripheralItems(self)
         if positionOfItems[position] ~= nil then
             local peripheral = self.computer.emulator:playPeripheralProxy(positionOfItems[position])
+            peripheral.isWrapped = true
             return peripheral
         end
     end

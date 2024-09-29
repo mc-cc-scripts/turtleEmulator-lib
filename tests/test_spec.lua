@@ -40,7 +40,9 @@ require(package)
 -- load the other suits
 local vector = require("vector")
 local geoScanner = require("geoScanner")
+local modemClass = require("modem")
 local chestInventory = require("chestInventory")
+
 
 local turtleEmulator = require("turtleEmulator")
 describe("Disabled Movement", function()
@@ -940,5 +942,45 @@ describe("peripherals", function()
             assert.are.equal("computercraft:turtle_advanced", scanData[2].name)
             assert.are.equal("enderchests:ender_chest", scanData[3].name)
         end)
+    end)
+end)
+describe("GPS", function()
+    ---@type TurtleProxy
+    local turtle
+    local gpsItem
+    local gps
+    local modem
+    local peripheral
+
+    before_each(function()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:clearTurtles()
+        turtle = turtleEmulator:createTurtle()
+        gpsItem = { name = "computercraft:advanced_modem", count = 1, equipable = true }
+        turtle.addItemToInventory(gpsItem, 1)
+        turtle.addItemToInventory({ name = "minecraft:coal", count = 64, fuelgain = 8 }, 2)
+        modem = turtleEmulator:addPeripheralToItem(gpsItem, modemClass, turtle)
+        gps = modem
+        peripheral = turtle.getPeripheralModule()
+    end)
+    it("should fail", function()
+        local falsy = modem.locate()
+        assert.is.falsy(falsy)
+    end)
+    it("should work", function()
+        assert.is_true(turtle.equipLeft())
+        assert.are.equal("computercraft:advanced_modem", turtle.equipslots.left.name)
+        assert.is.truthy(peripheral.find("modem"))
+        turtle.select(2)
+        turtle.refuel(10)
+        local x, y, z = gps.locate()
+        assert.are.equal(0, x)
+        assert.are.equal(0, y)
+        assert.are.equal(0, z)
+        turtle.forward()
+        x, y, z = gps.locate()
+        assert.are.equal(1, x)
+        assert.are.equal(0, y)
+        assert.are.equal(0, z)
     end)
 end)

@@ -12,6 +12,9 @@
 
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
 
+---@class GPSModule
+---@field locate fun():number, number, number
+
 ---@class TurtleMock
 ---@field position Vector | nil
 ---@field facing Vector | nil
@@ -59,6 +62,7 @@
 ---@field dropDown fun(count: integer):boolean
 ---@field dropUp fun(count: integer):boolean
 ---@field drop fun(count: integer):boolean
+---@field getGPSModule fun():table
 ---@field print fun(...: any):nil only exists for testing purposes
 ---@field getPeripheralModule fun():PeripheralModule only exists for testing purposes
 ---@field addItemToInventory fun(item: Item, slot: number | nil):boolean only exists for testing purposes
@@ -702,6 +706,7 @@ end
 function turtleMock:drop(count)
     return drop(self, self.position + self.facing, count)
 end
+
 ---will only print content if canPrint is set to true
 ---@param ... any
 ---@return nil
