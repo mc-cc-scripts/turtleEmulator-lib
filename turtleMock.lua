@@ -168,7 +168,6 @@ local function forward(self, act)
 
     ---@type Vector
     local newPosition = self.position + self.facing
-
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
@@ -364,7 +363,9 @@ end
 ---@return boolean
 ---@return string | nil
 local function dig(turtle, block)
-    assert(block, "Block is nil in dig")
+    if block == nil then
+        return false, "Nothing to dig here"
+    end
     if not canDoAction(turtle, block, "dig") then
         return false, "Cannot beak block with this tool"
     end
@@ -422,7 +423,7 @@ end
 local function place(turtle, position)
     local item = turtle.inventory[turtle.inventory.selectedSlot]
     if item == nil then
-        return false, "No item to place"
+        return false, "No items to place"
     end
     if item.placeAction ~= nil then 
         return item.placeAction(turtle, item, position)
@@ -608,21 +609,18 @@ end
 function turtleMock:dig()
     local blockPos = self.position + self.facing
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digUp()
     local blockPos = (self.position + vector.new(0, 1, 0))
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digDown()
     local blockPos = (self.position + vector.new(0, -1, 0))
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
