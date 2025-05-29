@@ -74,11 +74,12 @@
 
 
 local peripheral = require("peripheral")
-local defaultInteraction = require("defaultInteraction")
 local turtleInventory = require("turtleInventory")
 ---@type Vector
 local vector = require("vector")
+local defaultInteraction = require("defaultInteraction")
 local deepCopy = require("helperFunctions").deepCopy
+
 
 --- this class should not be used directly, use the createMock of the turtleEmulator function instead, which will set the proxy
 ---@type TurtleMock

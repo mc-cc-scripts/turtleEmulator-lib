@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 turtleEmulator.lua
 turtleMock.lua
 peripheral.lua
 defaultInteraction.lua
-defaultcheckActionValid.lua
 inventory/chestInventory.lua
 inventory/inventory.lua
 inventory/turtleInventory.lua
-=======
->>>>>>> master
+peripherals/geoScanner.lua
+peripherals/modem.lua
+peripherals/peripheral.lua
