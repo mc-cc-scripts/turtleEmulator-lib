@@ -1,8 +1,8 @@
 --#region Definitions
 ---@class placeAction
----@field funciton fun(turtle: TurtleProxy | TurtleMock, item: item, position: position): boolean , any[]
+---@field funciton fun(turtle: TurtleProxy | TurtleMock, item: Item, position: Vector): boolean , any[]
 
----@class item
+---@class Item
 ---@field name string
 ---@field durability integer | nil
 ---@field equipable boolean | nil
@@ -13,6 +13,9 @@
 ---@field wildcardInfo any | nil
 ---@field count integer | nil
 ---@field tags table<string, any> | nil
+---@field peripheralActions PeripheralActions | nil
+---@field peripheralName string | nil
+---@field peripheralProxy PeripheralActions | nil
 
 
 --#endregion
@@ -23,7 +26,7 @@ local class = require("ccClass")
 
 ---# inventory
 ---Inventory system emulated
----@class Inventory
+---@class Inventory : PeripheralActions
 ---@field inventorySize number
 ---@field defaultMaxSlotSize number
 ---@field protected init function
@@ -38,7 +41,6 @@ function inventory:slotNotEmpty(slot)
 end
 
 --- gets the space in the selected slot or the specified slot
----@param inventory Inventory the inventory to get the space from
 ---@param slot integer | nil the slot to get the space for
 ---@return integer space maxcount - currentcount
 ---@protected
@@ -49,8 +51,7 @@ function inventory:getItemSpace(slot)
 end
 
 --- Finds the first slot containing the specified item or no Item, starting with the selected slot and looping around.
----@param inventory Inventory
----@param item item
+---@param item Item
 ---@param startingSlot number
 ---@protected
 function inventory:findFittingSlot(item, startingSlot)
@@ -73,11 +74,13 @@ function inventory:findFittingSlot(item, startingSlot)
 end
 
 --- gets the item count in the selected slot or the specified slot
----@param inventory Inventory the inventory to get the item-count from
 ---@param slot integer the slot to get the item-count from
 ---@return integer count the amount of items in the slot
 ---@protected
 function inventory:getItemCount(slot)
+    if not slot then
+        error(self)
+    end
     assert(slot ~= nil, "Slot must be specified")
     assert((slot >= 1 and slot <= 16) or slot == nil, "Slot number " .. slot .. " out of range")
     return self:slotNotEmpty(self[slot]) and self[slot].count or 0
@@ -86,8 +89,7 @@ end
 --- Adds items to the selected slot or the specified slot.
 ---
 --- <b>note</b>: This function will only work for tests and does not work on the CraftOS-Turtle
----@param inventory Inventory
----@param item item
+---@param item Item
 ---@param slot number | nil
 ---@protected
 function inventory:pickUpItem(item, slot)
@@ -151,11 +153,11 @@ end
 --- ### Description:
 --- gets the item in the selected slot or the specified slot
 ---@param slot integer | nil the slot to get the item-details from
----@return item | nil item the item in the slot
+---@return Item | nil item the item in the slot
 function inventory:getItemDetail(slot)
     assert(slot ~= nil, "Slot must be specified")
     assert((slot >= 1 and slot <= self.inventorySize) or slot == nil, "Slot number " .. slot .. " out of range")
-    ---@type item
+    ---@type Item
     local iSlot = self[slot]
     return iSlot ~= nil and { name = iSlot.name, count = iSlot.count } or nil
 end
@@ -163,7 +165,7 @@ end
 --- ### Description:
 --- for Testing purposes:
 --- adds an item to the inventory
----@param item item
+---@param item Item
 ---@param slot number | nil
 function inventory:addItemToInventory(item, slot)
     local succ, errorReason = self:pickUpItem(item, slot)

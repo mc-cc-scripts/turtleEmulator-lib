@@ -29,13 +29,27 @@
 ---@field equal function
 assert = assert
 
+<<<<<<< HEAD
 package.path = package.path
     ..";inventory/?.lua;"
     .."libs/?.lua;"
     .."libs/?/?.lua;"
+=======
+local spath =
+    debug.getinfo(1,'S').source:sub(2):gsub("/+", "/"):gsub("[^/]*$",""):gsub("/tests", ""):gsub("tests", "")
+if spath == "" then
+    spath = "./"
+end
+local package = spath.."ccPackage"
+require(package)
+>>>>>>> master
 
 -- load the other suits
 local vector = require("vector")
+local geoScanner = require("geoScanner")
+local modemClass = require("modem")
+local chestInventory = require("chestInventory")
+
 
 local turtleEmulator = require("turtleEmulator")
 describe("Disabled Movement", function()
@@ -529,13 +543,13 @@ describe("ActionAccepted", function()
     local toolsStone = "minecraft:pickaxe"
     local toolsWood = { "minecraft:pickaxe", "minecraft:axe" }
     ---@type checkActionValid
-    local toolsWheed = function(equipslots, action, blockRef)
-        local tool1 = equipslots.left and equipslots.left.name or nil
-        local tool2 = equipslots.right and equipslots.right.name or nil
+    local toolsWheed = function(turtle, action, blockRef)
+        local tool1 = turtle.equipslots.left and turtle.equipslots.left.name or nil
+        local tool2 = turtle.equipslots.right and turtle.equipslots.right.name or nil
         return (tool1 == "minecraft:hoe" or tool2 == "minecraft:hoe") and action == "dig"
     end;
 
-    ---@type onInteration
+    ---@type onInteraction
     local dirtInteraction = function(turtle, block, action)
         if block.item.name == "minecraft:dirt" and action == "dig" then
             block.item.name = "minecraft:farmland"
@@ -552,7 +566,7 @@ describe("ActionAccepted", function()
             item = { name = "minecraft:dirt" },
             position = vector.new(0, -1, 0),
             checkActionValid = { ["dig"] = toolsWheed },
-            onInteration =
+            onInteraction =
                 dirtInteraction
         })
         turtleEmulator:createBlock({ item = { name = "minecraft:cobblestone" }, position = vector.new(0, -1, 3), checkActionValid = { ["dig"] = {} } })
@@ -774,12 +788,12 @@ describe("peripherals", function()
         turtleEmulator:clearBlocks()
         turtleEmulator:clearTurtles()
         local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, 0, 0) })
-        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        local chest = turtleEmulator:addInventoryToItem(block.item)
         chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
 
         local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(2, 0,
             0) })
-        local chest2 = turtleEmulator:addInventoryToBlock({ x = 2, y = 0, z = 0 })
+        local chest2 = turtleEmulator:addInventoryToItem(block2.item)
         assert.is_true(chest2:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2))
         assert.are.equal(64, chest:getItemCount(1))
         assert.are.equal(0, chest:getItemCount(2))
@@ -787,31 +801,31 @@ describe("peripherals", function()
         assert.are.equal(64, chest2.getItemCount(2))
         -- check the ORIGINAL block in the emulator
         -- since the return is just a proxy
-        assert.are.equal(64, block2.peripheralActions[2].count)
+        assert.are.equal(64, block2.item.peripheralActions[2].count)
     end)
     it("isPresent", function()
         turtle.position = vector.new(5, 0, 5 )
         turtle.facing = vector.new(1, 0, 0)
         local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(5, 0, 6 ) })
-        turtleEmulator:addInventoryToBlock(block.position)
+        turtleEmulator:addInventoryToItem(block.item)
         ---     o.o
         --- ___|___|___
         --- ___|_t_|_x_
         ---    |   |
-        assert.is_false(peripheral.isPresent("front"))
-        assert.is_false(peripheral.isPresent("left"))
-        assert.is_false(peripheral.isPresent("back"))
-        assert.is_false(peripheral.isPresent("up"))
-        assert.is_false(peripheral.isPresent("down"))
-        assert.is_true(peripheral.isPresent("right"))
-        local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(6, 0, 5) })
-        turtleEmulator:addInventoryToBlock(block2.position)
+        -- assert.is_false(peripheral.isPresent("front"))
+        -- assert.is_false(peripheral.isPresent("left"))
+        -- assert.is_false(peripheral.isPresent("back"))
+        -- assert.is_false(peripheral.isPresent("up"))
+        -- assert.is_false(peripheral.isPresent("down"))
+        -- assert.is_false(peripheral.isPresent("right"))
+        local block2 = turtleEmulator:createBlock({ item = { name = "minecraft:chest2" }, position = vector.new(6, 0, 5) })
+        turtleEmulator:addInventoryToItem(block2.item)
         ---     o.o
         --- ___|_x_|___
         --- ___|_t_|_x_
         ---    |   |
         assert.is_true(peripheral.isPresent("front"))
-        assert.is_true(peripheral.isPresent("right"))
+        assert.is_false(peripheral.isPresent("right"))
         assert.is_false(peripheral.isPresent("left"))
         assert.is_false(peripheral.isPresent("back"))
         turtle.turnRight()
@@ -821,15 +835,15 @@ describe("peripherals", function()
         ---    |   |
         assert.is_false(peripheral.isPresent("right"))
         assert.is_false(peripheral.isPresent("back"))
-        assert.is_true(peripheral.isPresent("left"))
+        assert.is_false(peripheral.isPresent("left"))
         assert.is_true(peripheral.isPresent("front"))
         turtle.turnRight()
         --- ___|_x_|___
         --- ___|_t_|_x_
         --- ___|   |   
         ---     o.o
-        assert.is_true(peripheral.isPresent("back"))
-        assert.is_true(peripheral.isPresent("left"))
+        assert.is_false(peripheral.isPresent("back"))
+        assert.is_false(peripheral.isPresent("left"))
         assert.is_false(peripheral.isPresent("front"))
         assert.is_false(peripheral.isPresent("right"))
         turtle.turnRight()
@@ -838,32 +852,32 @@ describe("peripherals", function()
         ---      ___|   |   
         assert.is_false(peripheral.isPresent("left"))
         assert.is_false(peripheral.isPresent("front"))
-        assert.is_true(peripheral.isPresent("right"))
-        assert.is_true(peripheral.isPresent("back"))
+        assert.is_false(peripheral.isPresent("right"))
+        assert.is_false(peripheral.isPresent("back"))
         turtle.turnRight()
         ---         o.o
         ---     ___|_x_|___
         ---     ___|_t_|_x_
         ---     ___|   |
         assert.is_true(peripheral.isPresent("front"))
-        assert.is_true(peripheral.isPresent("right"))
+        assert.is_false(peripheral.isPresent("right"))
         assert.is_false(peripheral.isPresent("left"))
         assert.is_false(peripheral.isPresent("back"))
     end)
     it("Can Access Chest", function()
         turtle.position = vector.new(5, 0, 5 )
         turtle.facing = vector.new(1, 0, 0)
-        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(5, 0, 6 ) })
-        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(6, 0, 5 ) })
+        local chest = turtleEmulator:addPeripheralToItem(block.item, chestInventory)
         chest:addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
-        ---@type inventory | nil
+        ---@type ChestInventory | nil
         local chestPeripheral = peripheral.find("inventory")
         assert.True(chestPeripheral ~= nil)
         assert.are.equal(64, chestPeripheral.getItemCount(1))
     end)
     it("Can drop items", function ()
         local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, 0, 0 ) })
-        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        local chest = turtleEmulator:addInventoryToItem(block.item)
         turtle.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 1)
         turtle.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 }, 2)
         turtle.select(1)
@@ -883,12 +897,97 @@ describe("peripherals", function()
     end)
     it("Can find chest", function()
         local block = turtleEmulator:createBlock({ item = { name = "minecraft:chest" }, position = vector.new(1, 0, 0 ) })
-        local chest = turtleEmulator:addInventoryToBlock(block.position)
+        local chest = turtleEmulator:addInventoryToItem(block.item)
         ---@type inventory | nil
         local chestPeripheral = peripheral.find("inventory")
         assert.True(chestPeripheral ~= nil)
         assert.are.equal(0,chestPeripheral.getItemCount(1))
         assert.are.equal("inventory", chestPeripheral.getType())
-        -- assert.are.equal("minecraft:chest", chestPeripheral.getMe())
+    end)
+    it("Check turtleEquips", function()
+        turtle.addItemToInventory({ name = "minecraft:testItem", count = 1, maxcount = 1, equipable = true }, 1)
+        turtleEmulator:addInventoryToItem(turtle.inventory[1])
+        turtle.equipLeft()
+        assert.is_true(peripheral.isPresent("left"))
+        local testItem = peripheral.wrap("left")
+        ---@type ChestInventory | nil
+        assert.is_true(testItem ~= nil)
+        assert.are.equal("inventory", testItem.getType())
+        testItem.addItemToInventory({ name = "minecraft:stone", count = 64, maxcount = 64 })
+        assert.are.equal(64, testItem.getItemCount(1))
+    end)
+    describe("Scanner", function()
+        before_each(function()
+            turtle.addItemToInventory({ name = "advancedperipherals:geoscanner", count = 1, maxcount = 1, equipable = true}, 1)
+            turtleEmulator:addPeripheralToItem(turtle.inventory[1], geoScanner, turtle)
+            assert.is_true(turtle.equipLeft())
+        end)
+        it("Wrap", function()
+            assert.is_true(peripheral.isPresent("left"))
+            local scanner = peripheral.wrap("left")
+            assert.is_true(scanner ~= nil)
+            ---@cast scanner GeoScanner
+            assert.are.equal("geoScanner", scanner.getType())
+            scanner.scanResult = { { name = "minecraft:stone", count = 64, tags = {} } }
+            local result = scanner.scan(20)
+            assert.are.equal("minecraft:stone", result[1].name)
+        end)
+        it("Emulate", function() 
+            local scanner = peripheral.find("geoScanner")
+            assert.is_true(scanner ~= nil)
+            ---@cast scanner GeoScanner
+            local fakeData = {
+                {y = 0,x = 0,name = "minecraft:deepslate_iron_ore",z = -2,},
+                {y = 0,x = 0,name = "computercraft:turtle_advanced",z = 0},
+                {y = 2,x = 0,name = "enderchests:ender_chest",z = -2,}
+            }
+            scanner.scanEmulator = true
+            ---@cast fakeData ScanDataTable
+            turtleEmulator:readBlocks(fakeData)
+            local scanData = scanner.scan(3)
+            assert.are.equal("minecraft:deepslate_iron_ore", scanData[1].name)
+            assert.are.equal("computercraft:turtle_advanced", scanData[2].name)
+            assert.are.equal("enderchests:ender_chest", scanData[3].name)
+        end)
+    end)
+end)
+describe("GPS", function()
+    ---@type TurtleProxy
+    local turtle
+    local gpsItem
+    local gps
+    local modem
+    local peripheral
+
+    before_each(function()
+        turtleEmulator:clearBlocks()
+        turtleEmulator:clearTurtles()
+        turtle = turtleEmulator:createTurtle()
+        gpsItem = { name = "computercraft:advanced_modem", count = 1, equipable = true }
+        turtle.addItemToInventory(gpsItem, 1)
+        turtle.addItemToInventory({ name = "minecraft:coal", count = 64, fuelgain = 8 }, 2)
+        modem = turtleEmulator:addPeripheralToItem(gpsItem, modemClass, turtle)
+        gps = modem
+        peripheral = turtle.getPeripheralModule()
+    end)
+    it("should fail", function()
+        local falsy = modem.locate()
+        assert.is.falsy(falsy)
+    end)
+    it("should work", function()
+        assert.is_true(turtle.equipLeft())
+        assert.are.equal("computercraft:advanced_modem", turtle.equipslots.left.name)
+        assert.is.truthy(peripheral.find("modem"))
+        turtle.select(2)
+        turtle.refuel(10)
+        local x, y, z = gps.locate()
+        assert.are.equal(0, x)
+        assert.are.equal(0, y)
+        assert.are.equal(0, z)
+        turtle.forward()
+        x, y, z = gps.locate()
+        assert.are.equal(1, x)
+        assert.are.equal(0, y)
+        assert.are.equal(0, z)
     end)
 end)

@@ -32,7 +32,7 @@ function chestInventory:pullItems(fromName, fromSlot, limit, toSlot)
     error("TODO")
 end
 
-function getMethods()
+local function getMethods()
     return {
         "list",
         "getType",

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 turtleEmulator.lua
 turtleMock.lua
 peripheral.lua
@@ -6,3 +7,5 @@ defaultcheckActionValid.lua
 inventory/chestInventory.lua
 inventory/inventory.lua
 inventory/turtleInventory.lua
+=======
+>>>>>>> master

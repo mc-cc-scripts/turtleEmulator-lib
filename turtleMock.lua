@@ -8,9 +8,12 @@
 
 ---@alias left string
 ---@alias right string
----@alias equipslots {left: item, right: item}
+---@alias equipslots {left: Item, right: Item}
 
 ---@alias inspectResult {name: string, tags: table<string, any> | nil, state: table<string, any> | nil} | nil
+
+---@class GPSModule
+---@field locate fun():number, number, number
 
 ---@class TurtleMock
 ---@field position Vector | nil
@@ -23,7 +26,6 @@
 ---@field emulator TurtleEmulator | nil
 ---@field id number | nil
 ---@field peripheralModule PeripheralModule
----@field createMock fun(emulator: TurtleEmulator, id: number, suits: Suits, position: Vector, facingPos: Vector):TurtleProxy
 ---@field forward fun(act: boolean | nil):boolean, string | nil, position
 ---@field back fun(act: boolean | nil):boolean, string | nil, position
 ---@field up fun(act: boolean | nil):boolean, string | nil, position
@@ -33,7 +35,7 @@
 ---@field getSelectedSlot fun():integer
 ---@field getItemCount fun(slot: integer):integer
 ---@field getItemSpace fun(slot: integer):integer
----@field getItemDetail fun(slot: integer | nil):item | nil
+---@field getItemDetail fun(slot: integer | nil):Item | nil
 ---@field compareTo fun(slot: integer):boolean
 ---@field transferTo fun(slot: integer, count: integer):boolean, string | nil
 ---@field select fun(slot: integer):boolean
@@ -60,9 +62,10 @@
 ---@field dropDown fun(count: integer):boolean
 ---@field dropUp fun(count: integer):boolean
 ---@field drop fun(count: integer):boolean
+---@field getGPSModule fun():table
 ---@field print fun(...: any):nil only exists for testing purposes
 ---@field getPeripheralModule fun():PeripheralModule only exists for testing purposes
----@field addItemToInventory fun(item: item, slot: number | nil):boolean only exists for testing purposes
+---@field addItemToInventory fun(item: Item, slot: number | nil):boolean only exists for testing purposes
 ---@field removeItem fun(turtle: TurtleMock, slot: integer, count: integer):boolean only exists for testing purposes
 
 ---@class TurtleProxy : TurtleMock
@@ -109,16 +112,16 @@ local function createTurtleMock(_, emulator, id, position, facingPos)
         emulator = emulator,
         id = id,
         item = { name = "computercraft:turtle_normal" },
-        checkActionValid = {["dig"] = function (equipslots, action, block)
-            if equipslots.left and equipslots.left.name == "minecraft:pickaxe" then
+        checkActionValid = {["dig"] = function (turtle, action, block)
+            if turtle.equipslots.left and turtle.equipslots.left.name == "minecraft:pickaxe" then
                 return true
             end
-            if equipslots.right and equipslots.right.name == "minecraft:pickaxe" then
+            if turtle.equipslots.right and turtle.equipslots.right.name == "minecraft:pickaxe" then
                 return true
             end
             return false
         end},
-        onInteration = defaultInteraction,
+        onInteraction = defaultInteraction,
     }
     setmetatable(turtle, { __index = turtleMock })
 
@@ -128,7 +131,7 @@ local function createTurtleMock(_, emulator, id, position, facingPos)
         local value = turtle[key]
         if type(value) == "function" then
             return function(...)
-                if value == turtle.onInteration then
+                if value == turtle.onInteraction then
                     return value(...)
                 end
                 local mightBeSelf = select(1, ...)
@@ -157,7 +160,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function forward(self, act)
     if act == nil then
         act = true
@@ -165,7 +168,6 @@ local function forward(self, act)
 
     ---@type Vector
     local newPosition = self.position + self.facing
-
     if self.emulator:getBlock(newPosition) ~= nil then
         return false, "Movement obstructed by " .. self.emulator:getBlock(newPosition).item.name, newPosition
     end
@@ -183,7 +185,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function back(self, act)
     if act == nil then
         act = true
@@ -206,7 +208,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function up(self, act)
     if act == nil then
         act = true
@@ -230,7 +232,7 @@ end
 ---@param act boolean | nil
 ---@return boolean
 ---@return string | nil
----@return position
+---@return Vector
 local function down(self, act)
     if act == nil then
         act = true
@@ -308,11 +310,11 @@ local function canDoAction(turtle, block, action)
     assert(block.checkActionValid, text)
         -- check typeof function
     if type(block.checkActionValid) == "function" then
-        return block.checkActionValid(turtle.equipslots, action, block)
+        return block.checkActionValid(turtle, action, block)
     end
     assert(block.checkActionValid[action] ~= nil, text)
     if type(block.checkActionValid[action]) == "function" then
-        return block.checkActionValid[action](turtle.equipslots, action, block)
+        return block.checkActionValid[action](turtle, action, block)
     end
         
     if turtle.equipslots == nil then
@@ -345,7 +347,7 @@ local function canDoAction(turtle, block, action)
                 end
             end
             if type(requiredTool) == "function" then
-                return requiredTool(turtle.equipslots, action, block)
+                return requiredTool(turtle, action, block)
             end
         end
         return allTools
@@ -361,12 +363,17 @@ end
 ---@return boolean
 ---@return string | nil
 local function dig(turtle, block)
-    assert(block, "Block is nil in dig")
+    if block == nil then
+        return false, "Nothing to dig here"
+    end
     if not canDoAction(turtle, block, "dig") then
         return false, "Cannot beak block with this tool"
     end
     ---@cast turtle TurtleProxy
-    block.onInteration(turtle, block, "dig")
+    if(not block.onInteraction) then
+        error(block.item)
+    end
+    block.onInteraction(turtle, block, "dig")
     return true, "Cannot beak block with this tool"
 end
 
@@ -377,7 +384,7 @@ local function detect(block)
 end
 
 ---@param block block | nil
----@param compareItem item | nil
+---@param compareItem Item | nil
 ---@return boolean
 local function compareBlock(block, compareItem)
     if block == nil and compareItem == nil then
@@ -416,7 +423,7 @@ end
 local function place(turtle, position)
     local item = turtle.inventory[turtle.inventory.selectedSlot]
     if item == nil then
-        return false, "No item to place"
+        return false, "No items to place"
     end
     if item.placeAction ~= nil then 
         return item.placeAction(turtle, item, position)
@@ -449,77 +456,6 @@ local function drop(turtle, position, count)
         return turtle.inventory:removeItem(turtle.inventory.selectedSlot, count)
     end
     return false
-end
-
----@param emulator TurtleEmulator
----@param id number
----@param suits table<string, any>
----@param position Vector
----@param facingPos Vector
----@return TurtleProxy
-function turtleMock.createMock(emulator, id, suits, position, facingPos)
-    local turtle = {
-        ---@type position
-        position = position or vector.new(0, 0, 0),
-        ---@type Vector
-        facing = facingPos or vector.new(1, 0, 0),
-        ---@type number
-        fuelLevel = 0,
-        ---@type boolean
-        canPrint = false,
-        ---@type TurtleInventory
-        inventory = turtleInventory(16),
-        ---@type integer
-        selectedSlot = 1,
-        ---@type integer
-        fuelLimit = 100000,
-        equipslots = {},
-        emulator = emulator,
-        id = id,
-        item = { name = "computercraft:turtle_normal" },
-        checkActionValid = {["dig"] = function (equipslots, action, block)
-            if equipslots.left and equipslots.left.name == "minecraft:pickaxe" then
-                return true
-            end
-            if equipslots.right and equipslots.right.name == "minecraft:pickaxe" then
-                return true
-            end
-            return false
-        end},
-        onInteration = defaultInteraction,
-        suits = suits
-    }
-    setmetatable(turtle, { __index = turtleMock })
-
-    local proxy = {}
-    local mt = {}
-    mt.__index = function(_, key)
-        local value = turtle[key]
-        if type(value) == "function" then
-            return function(...)
-                if value == turtle.onInteration then
-                    return value(...)
-                end
-                local mightBeSelf = select(1, ...)
-                if mightBeSelf == turtle then
-                    return value(...)
-                elseif mightBeSelf == proxy then
-                ---@diagnostic disable-next-line: missing-parameter
-                    return value(turtle, select(2, ...))
-                end
-                return value(turtle, ...)
-            end
-        end
-        return value
-    end
-    mt.__newindex = function(_, key, value)
-        turtle[key] = value
-    end
-    mt.__metatable = mt
-
-    setmetatable(proxy, mt)
-    proxy.peripheralModule = peripheral:linkToTurtle(proxy)
-    return proxy
 end
 
 function turtleMock:getPeripheralModule()
@@ -580,7 +516,7 @@ end
 
 --- gets the item in the selected slot or the specified slot
 ---@param slot integer | nil the slot to get the item-details from
----@return item | nil item the item in the slot
+---@return Item | nil item the item in the slot
 function turtleMock:getItemDetail(slot)
     return self.inventory:getItemDetail(slot)
 end
@@ -619,7 +555,7 @@ end
 
 --- for Testing purposes:
 --- adds an item to the inventory
----@param item item
+---@param item Item
 ---@param slot number | nil
 function turtleMock:addItemToInventory(item, slot)
     return self.inventory:addItemToInventory(item, slot)
@@ -641,7 +577,6 @@ end
 ---@return string | nil
 function turtleMock:refuel(count)
     count = count or 1
-    assert(count > 0, "Count must be greater than 0")
     local item = self.inventory[self.inventory.selectedSlot]
     if item == nil or count > item.count then
         return false, "TODO"
@@ -674,21 +609,18 @@ end
 function turtleMock:dig()
     local blockPos = self.position + self.facing
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digUp()
     local blockPos = (self.position + vector.new(0, 1, 0))
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
 function turtleMock:digDown()
     local blockPos = (self.position + vector.new(0, -1, 0))
     local block = self.emulator:getBlock(blockPos)
-    assert(block, "Block not found at position: " .. tostring(blockPos))
     return dig(self, block)
 end
 
@@ -772,6 +704,7 @@ end
 function turtleMock:drop(count)
     return drop(self, self.position + self.facing, count)
 end
+
 ---will only print content if canPrint is set to true
 ---@param ... any
 ---@return nil
