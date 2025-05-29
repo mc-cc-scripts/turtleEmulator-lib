@@ -18,8 +18,8 @@
 --#endregion
 
 
-local deepCopy = require("./TestSuite-lib/helperFunctions/helperFunctions").deepCopy
-local class = require("./TestSuite-lib/ccClass/ccClass")
+local deepCopy = require("helperFunctions").deepCopy
+local class = require("ccClass")
 
 ---# inventory
 ---Inventory system emulated

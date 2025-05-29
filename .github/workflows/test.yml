@@ -7,15 +7,9 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
-    - name: checkout
-      uses: actions/checkout@v2
-      with:
-        submodules: true
-
     - name: get lua
-      uses: leafo/gh-actions-lua@v10
+      uses: leafo/gh-actions-lua@v11
       with: 
         luaVersion: "5.1"
 
@@ -30,11 +24,11 @@ jobs:
         luarocks install luasocket
         luarocks install luasec
 
-    - name: Git Submodule Update
+    - name: fetch dependencies
       run: |
-        git pull --recurse-submodules
-        git submodule update --remote --recursive
+        chmod +x ./fetch-deps.sh
+        ./fetch-deps.sh
 
     - name: test
       run: |
-        busted .
+        busted vector
