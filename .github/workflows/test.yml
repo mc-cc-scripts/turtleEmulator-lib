@@ -1,15 +1,17 @@
 name: Busted
 
-    
 on: [push, pull_request]
-
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
+    - name: checkout
+      uses: actions/checkout@v2
+
     - name: get lua
-      uses: leafo/gh-actions-lua@v11
+      uses: leafo/gh-actions-lua@v10
       with: 
         luaVersion: "5.1"
 
@@ -31,4 +33,4 @@ jobs:
 
     - name: test
       run: |
-        busted vector
+        busted .
