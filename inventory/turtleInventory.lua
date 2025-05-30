@@ -1,6 +1,6 @@
-local class = require("./TestSuite-lib/ccClass/ccClass")
-local inventory = require("../inventory/inventory")
-local deepCopy = require("../TestSuite-lib/helperFunctions/helperFunctions").deepCopy
+local class = require("ccClass")
+local inventory = require("inventory")
+local deepCopy = require("helperFunctions").deepCopy
 ---@class TurtleInventory : Inventory
 ---@field protected _base Inventory the base inventory class
 local turtleInventory = class(inventory, function (selfRef)

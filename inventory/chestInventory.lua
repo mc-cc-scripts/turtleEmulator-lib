@@ -1,5 +1,5 @@
-local class = require("./TestSuite-lib/ccClass/ccClass")
-local inventory = require("../inventory/inventory")
+local class = require("ccClass")
+local inventory = require("inventory")
 ---@class ChestInventory : Inventory
 local chestInventory = class(inventory)
 

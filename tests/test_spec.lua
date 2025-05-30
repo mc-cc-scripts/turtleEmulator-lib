@@ -29,13 +29,11 @@
 ---@field equal function
 assert = assert
 
-local spath =
-    debug.getinfo(1,'S').source:sub(2):gsub("/+", "/"):gsub("[^/]*$",""):gsub("/tests", ""):gsub("tests", "")
-if spath == "" then
-    spath = "./"
-end
-local package = spath.."ccPackage"
-require(package)
+package.path = package.path
+    ..";inventory/?.lua;"
+    .."libs/?.lua;"
+    .."libs/?/?.lua;"
+    .."peripherals/?.lua"
 
 -- load the other suits
 local vector = require("vector")

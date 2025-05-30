@@ -31,11 +31,28 @@
 
 ---@type TurtleMock
 local turtleM = require("turtleMock")
-local defaultInteraction = require("defaultInteraction")
-local defaultcheckActionValid = require("defaultcheckActionValid")
 local chestInventory = require("chestInventory")
 ---@type Vector
 local vector = require("vector")
+
+local defaultInteraction = require("defaultInteraction")
+
+---ment to be replaced if required
+---@param turtle TurtleMock
+---@param action any
+---@param block block
+---@return boolean
+local defaultcheckActionValid = function(turtle, action, block)
+    -- example use cases:
+    --
+    -- if turtle.equipslots.left and turtle.equipslots.left.name == "" then end
+    -- if action == "dig" then end
+    -- if block.item.name == "" then end
+
+    
+    return true
+end
+
 
 ---comment
 ---@param position Vector

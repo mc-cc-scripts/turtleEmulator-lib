@@ -1,4 +1,0 @@
-[submodule "TestSuite-lib"]
-	path = TestSuite-lib
-	url = https://github.com/mc-cc-scripts/TestSuite-lib.git
-	branch = master
