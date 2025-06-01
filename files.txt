@@ -1,6 +1,5 @@
 turtleEmulator.lua
 turtleMock.lua
-peripheral.lua
 defaultInteraction.lua
 inventory/chestInventory.lua
 inventory/inventory.lua
