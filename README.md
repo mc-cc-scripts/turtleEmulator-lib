@@ -1,5 +1,7 @@
 # turtleEmulator-lib
 
+Link to the full [Wiki](https://github.com/mc-cc-scripts/turtleEmulator-lib/wiki)
+
 This Emulator is exclusively ment to enable testing CC turtle-code with a testingframework (namely busted), outside MC and CraftOS.
 
 ### WIP
