@@ -436,7 +436,9 @@ local function place(turtle, position)
     if block ~= nil then
         return false, "Cannot place block here"
     end
-    turtle.emulator:createBlock({item = item, position = position})
+    local tmpItem = deepCopy(item)
+    tmpItem.count = 1
+    turtle.emulator:createBlock({item = tmpItem, position = position})
     return turtle.inventory:removeItem(turtle.inventory.selectedSlot, 1)
 end
 

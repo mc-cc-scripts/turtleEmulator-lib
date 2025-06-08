@@ -168,6 +168,8 @@ end
 ---@param item Item
 ---@param slot number | nil
 function inventory:addItemToInventory(item, slot)
+    if not item.maxcount then item.maxcount = 64 end
+
     local succ, errorReason = self:pickUpItem(item, slot)
     assert(succ, errorReason)
     return succ, errorReason
